@@ -1,13 +1,12 @@
 module Transport
   class JsonpPolling < Transport::HttpPolling
-    def initialize
-      @socket = Socket.new
+
+    def initialize(msg, data, req)
+      super(msg, data, req)
+      @name = 'jsonppolling'
+      @postEncoded = true
     end
 
-    def setHeartbeatInterval; end
-    def handleRequest; end
-    def clearPollTimeout; end
-    def clearTimeouts; end
     def doWrite data
 
       super(data)
@@ -15,8 +14,5 @@ module Transport
 
       @socket.emit data
     end
-
-    def write; end
-    def end; end
   end
 end
