@@ -2,32 +2,49 @@
 # xhr-polling
 module Tranport
   class HttpPolling < Transport::Tranport
+    def initialize(msg, data, req)
+      super(msg, data, req)
+      @name = 'httppolling'
+    end
+
     def setHeartbeatInterval; end
-    def handleRequest
-      @timer = EventMachine::Timer.new(Manager.settings['polling duration'] * 1000) do | x |
-        packet({
-          :type => :noop
-        })
+
+    def handleRequest req
+      if req.method == 'GET'
+        @timer = EventMachine::Timer.new(Manager.settings['polling duration'] * 1000) do | x |
+          packet({
+            :type => :noop
+          })
+        end
       end
     end
 
     def clearPollTimeout
-      @timer.cancel unless @timer.is_nil?
-      Logger.debug 'clearing poll timeout'
+      unless @timer.nil?
+        @timer.cancel 
+        @timer = nil;
+        Logger.debug 'clearing poll timeout'
+      end
     end
 
-    def clearTimeouts; end
+    def clearTimeouts
+      #HTTPTransport.prototype.clearTimeouts.call(this);
+      clearPollTimeout
+    end
+
     def doWrite
       clearPollTimeout
     end
     
-    def write
-      clearPollTimeout
+    def write(data, close)
+      doWrite data
+      @response.end
+      onClose
     end
 
     def end
-      super()
       clearPollTimeout
+      super() # return HTTPTransport.prototype.end.call(this);
     end
   end
 end

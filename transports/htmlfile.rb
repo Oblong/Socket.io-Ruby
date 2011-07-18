@@ -7,25 +7,24 @@ module Transport
 
     def handleRequest req
       super(req)
-=begin
-  if (req.method == 'GET') {
-    req.res.writeHead(200, {
-        'Content-Type': 'text/html'
-      , 'Connection': 'keep-alive'
-      , 'Transfer-Encoding': 'chunked'
-    });
 
-    req.res.write(
-        '<html><body>'
-      + '<script>var _ = function (msg) { parent.s._(msg, document); };</script>'
-      + new Array(174).join(' ')
-    );
-  }
-=end
+      if req.method == 'GET'
+        return [200, {
+          'Content-Type' => 'text/html',
+          'Connection' => 'keep-alive'
+          'Transfer-Encoding' => 'chunked'
+        }, [
+          '<html><body>',
+          '<script>var _ = function (msg) { parent.s._(msg, document); };</script>',
+          (0..174).map{' '}.join
+        ].join('') ]
+      end
+    end
     def write data
-      data = '<script>_(' + JSON.stringify(data) + ');</script>';
+      data = '<script>_(' + JSON.stringify(data) + ');</script>'
       
       @response.write data
+      #this.drained = true;
 
       Logger.debug("#{@name} writing", data)
     end
