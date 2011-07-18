@@ -48,13 +48,16 @@ module Transport
 
   this.handlersSet = true;
 };
+=end
+    def clearHandlers
+      if @handlersSet
+        ['disconnect-force', 'heartbeat-clear', 'dispatch'].each { | which |
+          @store.unsubscribe("#{which}:#{@id}")
+        }
 
-Transport.prototype.clearHandlers = function () {
-  if (this.handlersSet) {
-    this.store.unsubscribe('disconnect-force:' + this.id);
-    this.store.unsubscribe('heartbeat-clear:' + this.id);
-    this.store.unsubscribe('dispatch:' + this.id);
-
+        ['end', 'close', 'error'].each { | which |
+          @socket.removeListener which, ### TBD
+=begin
     this.socket.removeListener('end', this.bound.end);
     this.socket.removeListener('close', this.bound.close);
     this.socket.removeListener('error', this.bound.error);
@@ -83,31 +86,26 @@ Transport.prototype.clearHandlers = function () {
       clearHeartbeatTimeout
       setHeartbeatInterval
     end
-=begin
-Transport.prototype.onForcedDisconnect = function () {
-  if (!this.disconnected) {
-    this.log.info('transport end by forced client disconnection');
-    if (this.open) {
-      this.packet({ type: 'disconnect' });
-    }
-    this.end('booted');
-  }
-};
 
-/**
- * Dispatches a packet.
- *
- * @api private
- */
+    def onForcedDisconnect
+      unless @disconnected
+        Logger.info('transport end by forced client disconnection');
+        if @open
+          packet({ :type => 'disconnect' })
+        end
 
-Transport.prototype.onDispatch = function (packet, volatile) {
-  if (volatile) {
-    this.writeVolatile(packet);
-  } else {
-    this.write(packet);
-  }
-};
-=end
+        doEnd 'booted'
+      end
+    end
+
+    def onDispatch packet, volatile
+      if volatile
+        writeVolatile packet 
+      else
+        write packet
+      end
+    end
+
     def setCloseTimeout
       if @closeTimeout.nil?
 

@@ -8,7 +8,7 @@ module Transport
     def doWrite data
       super(data)
 
-      origin = this.req.headers.origin
+      origin = @req.headers['origin']
 
       headers = {
         'Content-Type' => 'text/plain; charset=UTF-8',
@@ -21,7 +21,7 @@ module Transport
         # https://developer.mozilla.org/En/HTTP_Access_Control
         headers['Access-Control-Allow-Origin'] = '*';
 
-        if (this.req.headers.cookie) 
+        unless @req.headers['cookie'].nil?
           headers['Access-Control-Allow-Credentials'] = 'true'
         end
       end

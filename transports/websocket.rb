@@ -2,7 +2,8 @@ module Transports
 
   class WebSocket < Tranports::Transport
 
-    def initialize
+    def initialize(msg, data, req)
+      super(msg, data, req)
       @parser = Parser.new
 
       @parser.on :data { | packet |
@@ -12,15 +13,10 @@ module Transports
 
       @parser.on :error { | x | end }
       @parser.on :close { | x | end }
-
-=begin
-  Transport.call(this, mng, data, req);
-=end
     end
 
     def onSocketConnect
 =begin
-  var self = this;
 
   this.socket.setNoDelay(true);
 

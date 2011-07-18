@@ -1,6 +1,9 @@
 module Transport
   class HTTPTransport < Transport::Transport
-    attr_accessor :name
+
+    def initialize mng, data, req
+      super(mng, data, req)
+    end
 
     def handleRequest req
       if req.method == 'POST'
@@ -10,7 +13,7 @@ module Transport
         headers = { 'Content-Length' => 1 }
 
         req.on 'data' { | data |
-          buffer += data
+          buffer << data
         }
 
         req.on 'end' { | x |
@@ -28,14 +31,10 @@ module Transport
 
         res.writeHead(200, headers)
         res.end('1')
+      else
+        @response = req.res
+        super req
       end
-=begin
-    } else {
-      this.response = req.res;
-
-      Transport.prototype.handleRequest.call(this, req);
-    }
-=end
     end
 
     def onData data
@@ -50,7 +49,7 @@ module Transport
     end
 
     def payload msgs
-      write(parser.encodePayload(msgs))
+      write parser.encodePayload(msgs)
     end
   end
 end
