@@ -28,16 +28,31 @@ module Manager
   };
 
   def self.handshakeData; end
-  def enable key
-    @settings[key] = true
+
+  def get key
+    @settings[key]
+  end
+
+  def emitKey(key)
     # FIRE
     emit("set:#{key}", @settings[key], key)
   end
 
+  def set(key, value=nil)
+    return @settings[key] if value.nil?
+
+    @settings[key] = value
+    emitKey key
+  end
+
+  def enable key
+    @settings[key] = true
+    emitKey key
+  end
+
   def disable key
     @settings[key] = false
-    # FIRE
-    emit("set:#{key}", @settings[key], key)
+    emitKey key
   end
 
   def enabled key
@@ -62,6 +77,7 @@ module Manager
 
     ret
   end
+=begin
 /**
  * Configure callbacks.
  *
@@ -83,77 +99,31 @@ Manager.prototype.configure = function (env, fn) {
  *
  * @api private
  */
+=end
+   def initStore
+     @handshaken = {}
+     @connected = {}
+     @open = {}
+     @closed = {}
+     @closedA = []
+     @rooms = {}
+     @roomClients = {}
 
-Manager.prototype.initStore = function () {
-  this.handshaken = {};
-  this.connected = {};
-  this.open = {};
-  this.closed = {};
-  this.closedA = [];
-  this.rooms = {};
-  this.roomClients = {};
+     'handshake connect open join leave close dispatch disconnect'.split(' ').each { | which |
+       @store.subscribe(which, { | *args | self.send("on#{which.capitalize}", args) }
+     }
+   end
 
-  var self = this;
+   def onHandshake(id, data)
+     @handshaken[id] = data
+   end
 
-  this.store.subscribe('handshake', function (id, data) {
-    self.onHandshake(id, data);
-  });
+   def onConnect(id)
+     @connected[id] = true
+   end
 
-  this.store.subscribe('connect', function (id) {
-    self.onConnect(id);
-  });
-
-  this.store.subscribe('open', function (id) {
-    self.onOpen(id);
-  });
-
-  this.store.subscribe('join', function (id, room) {
-    self.onJoin(id, room);
-  });
-
-  this.store.subscribe('leave', function (id, room) {
-    self.onLeave(id, room);
-  });
-
-  this.store.subscribe('close', function (id) {
-    self.onClose(id);
-  });
-
-  this.store.subscribe('dispatch', function (room, packet, volatile, exceptions) {
-    self.onDispatch(room, packet, volatile, exceptions);
-  });
-
-  this.store.subscribe('disconnect', function (id) {
-    self.onDisconnect(id);
-  });
-};
-
-/**
- * Called when a client handshakes.
- *
- * @param text
- */
-
-Manager.prototype.onHandshake = function (id, data) {
-  this.handshaken[id] = data;
-};
-
-/**
- * Called when a client connects (ie: transport first opens)
- *
- * @api private
- */
-
-Manager.prototype.onConnect = function (id) {
-  this.connected[id] = true;
-};
-
-/**
- * Called when a client opens a request in a different node.
- *
- * @api private
- */
-
+   def onOpen(id)
+=begin
 Manager.prototype.onOpen = function (id) {
   this.open[id] = true;
 
