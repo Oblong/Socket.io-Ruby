@@ -28,6 +28,26 @@ module Manager
   };
 
   def self.handshakeData; end
+  def enable key
+    @settings[key] = true
+    # FIRE
+    emit("set:#{key}", @settings[key], key)
+  end
+
+  def disable key
+    @settings[key] = false
+    # FIRE
+    emit("set:#{key}", @settings[key], key)
+  end
+
+  def enabled key
+    @settings[key]
+  end
+
+  def disabled key
+    !@settings[key]
+  end
+
   def self.transports data 
     transp = @settings[:transports]
     ret = []
@@ -42,4 +62,764 @@ module Manager
 
     ret
   end
+/**
+ * Configure callbacks.
+ *
+ * @api public
+ */
+
+Manager.prototype.configure = function (env, fn) {
+  if ('function' == typeof env) {
+    env.call(this);
+  } else if (env == process.env.NODE_ENV) {
+    fn.call(this);
+  }
+
+  return this;
+};
+
+/**
+ * Initializes everything related to the message dispatcher.
+ *
+ * @api private
+ */
+
+Manager.prototype.initStore = function () {
+  this.handshaken = {};
+  this.connected = {};
+  this.open = {};
+  this.closed = {};
+  this.closedA = [];
+  this.rooms = {};
+  this.roomClients = {};
+
+  var self = this;
+
+  this.store.subscribe('handshake', function (id, data) {
+    self.onHandshake(id, data);
+  });
+
+  this.store.subscribe('connect', function (id) {
+    self.onConnect(id);
+  });
+
+  this.store.subscribe('open', function (id) {
+    self.onOpen(id);
+  });
+
+  this.store.subscribe('join', function (id, room) {
+    self.onJoin(id, room);
+  });
+
+  this.store.subscribe('leave', function (id, room) {
+    self.onLeave(id, room);
+  });
+
+  this.store.subscribe('close', function (id) {
+    self.onClose(id);
+  });
+
+  this.store.subscribe('dispatch', function (room, packet, volatile, exceptions) {
+    self.onDispatch(room, packet, volatile, exceptions);
+  });
+
+  this.store.subscribe('disconnect', function (id) {
+    self.onDisconnect(id);
+  });
+};
+
+/**
+ * Called when a client handshakes.
+ *
+ * @param text
+ */
+
+Manager.prototype.onHandshake = function (id, data) {
+  this.handshaken[id] = data;
+};
+
+/**
+ * Called when a client connects (ie: transport first opens)
+ *
+ * @api private
+ */
+
+Manager.prototype.onConnect = function (id) {
+  this.connected[id] = true;
+};
+
+/**
+ * Called when a client opens a request in a different node.
+ *
+ * @api private
+ */
+
+Manager.prototype.onOpen = function (id) {
+  this.open[id] = true;
+
+  // if we were buffering messages for the client, clear them
+  if (this.closed[id]) {
+    var self = this;
+
+    this.closedA.splice(this.closedA.indexOf(id), 1);
+
+    this.store.unsubscribe('dispatch:' + id, function () {
+      delete self.closed[id];
+    });
+  }
+
+  // clear the current transport
+  if (this.transports[id]) {
+    this.transports[id].discard();
+    this.transports[id] = null;
+  }
+};
+
+/**
+ * Called when a message is sent to a namespace and/or room.
+ *
+ * @api private
+ */
+
+Manager.prototype.onDispatch = function (room, packet, volatile, exceptions) {
+  if (this.rooms[room]) {
+    for (var i = 0, l = this.rooms[room].length; i < l; i++) {
+      var id = this.rooms[room][i];
+
+      if (!~exceptions.indexOf(id)) {
+        if (this.transports[id] && this.transports[id].open) {
+          this.transports[id].onDispatch(packet, volatile);
+        } else if (!volatile) {
+          this.onClientDispatch(id, packet);
+        }
+      }
+    }
+  }
+};
+
+/**
+ * Called when a client joins a nsp / room.
+ *
+ * @api private
+ */
+
+Manager.prototype.onJoin = function (id, name) {
+  if (!this.roomClients[id]) {
+    this.roomClients[id] = [];
+  }
+
+  if (!this.rooms[name]) {
+    this.rooms[name] = [];
+  }
+
+  this.rooms[name].push(id);
+  this.roomClients[id][name] = true;
+};
+
+/**
+ * Called when a client leaves a nsp / room.
+ *
+ * @param private
+ */
+
+Manager.prototype.onLeave = function (id, room) {
+  if (this.rooms[room]) {
+    this.rooms[room].splice(this.rooms[room].indexOf(id), 1);
+    delete this.roomClients[id][room];
+  }
+};
+
+/**
+ * Called when a client closes a request in different node.
+ *
+ * @api private
+ */
+
+Manager.prototype.onClose = function (id) {
+  if (this.open[id]) {
+    delete this.open[id];
+  }
+
+  this.closed[id] = [];
+  this.closedA.push(id);
+
+  var self = this;
+
+  this.store.subscribe('dispatch:' + id, function (packet, volatile) {
+    if (!volatile) {
+      self.onClientDispatch(id, packet);
+    }
+  });
+};
+
+/**
+ * Dispatches a message for a closed client.
+ *
+ * @api private
+ */
+
+Manager.prototype.onClientDispatch = function (id, packet) {
+  if (this.closed[id]) {
+    this.closed[id].push(packet);
+  }
+};
+
+/**
+ * Receives a message for a client.
+ *
+ * @api private
+ */
+
+Manager.prototype.onClientMessage = function (id, packet) {
+  if (this.namespaces[packet.endpoint]) {
+    this.namespaces[packet.endpoint].handlePacket(id, packet);
+  }
+};
+
+/**
+ * Fired when a client disconnects (not triggered).
+ *
+ * @api private
+ */
+
+Manager.prototype.onClientDisconnect = function (id, reason) {
+  this.onDisconnect(id);
+
+  for (var name in this.namespaces) {
+    if (this.roomClients[id][name]) {
+      this.namespaces[name].handleDisconnect(id, reason);
+    }
+  }
+};
+
+/**
+ * Called when a client disconnects.
+ *
+ * @param text
+ */
+
+Manager.prototype.onDisconnect = function (id, local) {
+  delete this.handshaken[id];
+
+  if (this.open[id]) {
+    delete this.open[id];
+  }
+
+  if (this.connected[id]) {
+    delete this.connected[id];
+  }
+
+  if (this.transports[id]) {
+    this.transports[id].discard();
+    delete this.transports[id];
+  }
+
+  if (this.closed[id]) {
+    delete this.closed[id];
+    this.closedA.splice(this.closedA.indexOf(id), 1);
+  }
+
+  if (this.roomClients[id]) {
+    for (var room in this.roomClients[id]) {
+      this.rooms[room].splice(this.rooms[room].indexOf(id), 1);
+    }
+  }
+
+  this.store.destroyClient(id, this.get('client store expiration'));
+
+  this.store.unsubscribe('dispatch:' + id);
+
+  if (local) {
+    this.store.unsubscribe('message:' + id);
+    this.store.unsubscribe('disconnect:' + id);
+  }
+};
+
+/**
+ * Handles an HTTP request.
+ *
+ * @api private
+ */
+
+Manager.prototype.handleRequest = function (req, res) {
+  var data = this.checkRequest(req);
+
+  if (!data) {
+    for (var i = 0, l = this.oldListeners.length; i < l; i++) {
+      this.oldListeners[i].call(this.server, req, res);
+    }
+
+    return;
+  }
+
+  if (data.static || !data.transport && !data.protocol) {
+    if (data.static && this.enabled('browser client')) {
+      this.handleClientRequest(req, res, data);
+    } else {
+      res.writeHead(200);
+      res.end('Welcome to socket.io.');
+
+      this.log.info('unhandled socket.io url');
+    }
+
+    return;
+  }
+
+  if (data.protocol != protocol) {
+    res.writeHead(500);
+    res.end('Protocol version not supported.');
+
+    this.log.info('client protocol version unsupported');
+  } else {
+    if (data.id) {
+      this.handleHTTPRequest(data, req, res);
+    } else {
+      this.handleHandshake(data, req, res);
+    }
+  }
+};
+
+/**
+ * Handles an HTTP Upgrade.
+ *
+ * @api private
+ */
+
+Manager.prototype.handleUpgrade = function (req, socket, head) {
+  var data = this.checkRequest(req)
+    , self = this;
+
+  if (!data) {
+    if (this.enabled('destroy upgrade')) {
+      socket.end();
+      this.log.debug('destroying non-socket.io upgrade');
+    }
+
+    return;
+  }
+
+  req.head = head;
+  this.handleClient(data, req);
+};
+
+/**
+ * Handles a normal handshaken HTTP request (eg: long-polling)
+ *
+ * @api private
+ */
+
+Manager.prototype.handleHTTPRequest = function (data, req, res) {
+  req.res = res;
+  this.handleClient(data, req);
+};
+
+/**
+ * Intantiantes a new client.
+ *
+ * @api private
+ */
+
+Manager.prototype.handleClient = function (data, req) {
+  var socket = req.socket
+    , store = this.store
+    , self = this;
+
+  if (undefined != data.query.disconnect) {
+    if (this.transports[data.id] && this.transports[data.id].open) {
+      this.transports[data.id].onForcedDisconnect();
+    } else {
+      this.store.publish('disconnect-force:' + data.id);
+    }
+    return;
+  }
+
+  if (!~this.get('transports').indexOf(data.transport)) {
+    this.log.warn('unknown transport: "' + data.transport + '"');
+    req.connection.end();
+    return;
+  }
+
+  var transport = new transports[data.transport](this, data, req);
+
+  if (this.handshaken[data.id]) {
+    if (transport.open) {
+      if (this.closed[data.id] && this.closed[data.id].length) {
+        transport.payload(this.closed[data.id]);
+        this.closed[data.id] = [];
+      }
+
+      this.onOpen(data.id);
+      this.store.publish('open', data.id);
+      this.transports[data.id] = transport;
+    }
+
+    if (!this.connected[data.id]) {
+      this.onConnect(data.id);
+      this.store.publish('connect', data.id);
+
+      // initialize the socket for all namespaces
+      for (var i in this.namespaces) {
+        var socket = this.namespaces[i].socket(data.id, true);
+
+        // echo back connect packet and fire connection event
+        if (i === '') {
+          this.namespaces[i].handlePacket(data.id, { type: 'connect' });
+        }
+      }
+
+      this.store.subscribe('message:' + data.id, function (packet) {
+        self.onClientMessage(data.id, packet);
+      });
+
+      this.store.subscribe('disconnect:' + data.id, function (reason) {
+        self.onClientDisconnect(data.id, reason);
+      });
+    }
+  } else {
+    if (transport.open) {
+      transport.error('client not handshaken', 'reconnect');
+    }
+
+    transport.discard();
+  }
+};
+
+/**
+ * Dictionary for static file serving
+ *
+ * @api public
+ */
+
+Manager.static = {
+    cache: {}
+  , paths: {
+        '/static/flashsocket/WebSocketMain.swf': client.dist + '/WebSocketMain.swf'
+      , '/static/flashsocket/WebSocketMainInsecure.swf':
+          client.dist + '/WebSocketMainInsecure.swf'
+      , '/socket.io.js':  client.dist + '/socket.io.js'
+      , '/socket.io.js.min': client.dist + '/socket.io.min.js'
+    }
+  , mime: {
+        'js': {
+            contentType: 'application/javascript'
+          , encoding: 'utf8'
+        }
+      , 'swf': {
+            contentType: 'application/x-shockwave-flash'
+          , encoding: 'binary'
+        }
+    }
+};
+
+/**
+ * Serves the client.
+ *
+ * @api private
+ */
+
+Manager.prototype.handleClientRequest = function (req, res, data) {
+  var static = Manager.static
+    , extension = data.path.split('.').pop()
+    , file = data.path + (this.enabled('browser client minification')
+        && extension == 'js' ? '.min' : '')
+    , location = static.paths[file]
+    , cache = static.cache[file];
+
+  var self = this;
+
+  /**
+   * Writes a response, safely
+   *
+   * @api private
+   */
+
+  function write (status, headers, content, encoding) {
+    try {
+      res.writeHead(status, headers || null);
+      res.end(content || '', encoding || null);
+    } catch (e) {}
+  }
+
+  function serve () {
+    if (req.headers['if-none-match'] === cache.Etag) {
+      return write(304);
+    }
+
+    var mime = static.mime[extension]
+      , headers = {
+      'Content-Type': mime.contentType
+    , 'Content-Length': cache.length
+    };
+
+    if (self.enabled('browser client etag') && cache.Etag) {
+      headers.Etag = cache.Etag;
+    }
+
+    write(200, headers, cache.content, mime.encoding);
+    self.log.debug('served static ' + data.path);
+  }
+
+  if (this.get('browser client handler')) {
+    this.get('browser client handler').call(this, req, res);
+  } else if (!cache) {
+    fs.readFile(location, function (err, data) {
+      if (err) {
+        write(500, null, 'Error serving static ' + data.path);
+        self.log.warn('Can\'t cache '+ data.path +', ' + err.message);
+        return;
+      }
+
+      cache = Manager.static.cache[file] = {
+        content: data
+      , length: data.length
+      , Etag: client.version
+      };
+
+      serve();
+    });
+  } else {
+    serve();
+  }
+};
+
+/**
+ * Generates a session id.
+ *
+ * @api private
+ */
+
+Manager.prototype.generateId = function () {
+  return Math.abs(Math.random() * Math.random() * Date.now() | 0).toString()
+    + Math.abs(Math.random() * Math.random() * Date.now() | 0).toString();
+};
+
+/**
+ * Handles a handshake request.
+ *
+ * @api private
+ */
+
+Manager.prototype.handleHandshake = function (data, req, res) {
+  var self = this;
+
+  function writeErr (status, message) {
+    if (data.query.jsonp) {
+      res.writeHead(200, { 'Content-Type': 'application/javascript' });
+      res.end('io.j[' + data.query.jsonp + '](new Error("' + message + '"));');
+    } else {
+      res.writeHead(status);
+      res.end(message);
+    }
+  };
+
+  function error (err) {
+    writeErr(500, 'handshake error');
+    self.log.warn('handshake error ' + err);
+  };
+
+  if (!this.verifyOrigin(req)) {
+    writeErr(403, 'handshake bad origin');
+    return;
+  }
+
+  var handshakeData = this.handshakeData(data);
+
+  this.authorize(handshakeData, function (err, authorized, newData) {
+    if (err) return error(err);
+
+    if (authorized) {
+      var id = self.generateId()
+        , hs = [
+              id
+            , self.get('heartbeat timeout') || ''
+            , self.get('close timeout') || ''
+            , self.transports(data).join(',')
+          ].join(':');
+
+      if (data.query.jsonp) {
+        hs = 'io.j[' + data.query.jsonp + '](' + JSON.stringify(hs) + ');';
+        res.writeHead(200, { 'Content-Type': 'application/javascript' });
+      } else {
+        res.writeHead(200);
+      }
+
+      res.end(hs);
+
+      self.onHandshake(id, newData || handshakeData);
+      self.store.publish('handshake', id, newData || handshakeData);
+
+      self.log.info('handshake authorized', id);
+    } else {
+      writeErr(403, 'handshake unauthorized');
+      self.log.info('handshake unauthorized');
+    }
+  })
+};
+
+/**
+ * Gets normalized handshake data
+ *
+ * @api private
+ */
+
+Manager.prototype.handshakeData = function (data) {
+  var connection = data.request.connection
+    , connectionAddress;
+
+  if (connection.remoteAddress) {
+    connectionAddress = {
+        address: connection.remoteAddress
+      , port: connection.remotePort
+    }; 
+  } else if (connection.socket && connection.socket.remoteAddress) {
+    connectionAddress = {
+        address: connection.socket.remoteAddress
+      , port: connection.socket.remotePort
+    }; 
+  }
+
+  return {
+      headers: data.headers
+    , address: connectionAddress
+    , time: (new Date).toString()
+    , xdomain: !!data.request.headers.origin
+    , secure: data.request.connection.secure
+  };
+};
+
+/**
+ * Verifies the origin of a request.
+ *
+ * @api private
+ */
+
+Manager.prototype.verifyOrigin = function (request) {
+  var origin = request.headers.origin
+    , origins = this.get('origins');
+
+  if (origin === 'null') origin = '*';
+
+  if (origins.indexOf('*:*') !== -1) {
+    return true;
+  }
+
+  if (origin) {
+    try {
+      var parts = url.parse(origin);
+
+      return
+        ~origins.indexOf(parts.host + ':' + parts.port) ||
+        ~origins.indexOf(parts.host + ':*') ||
+        ~origins.indexOf('*:' + parts.port);
+    } catch (ex) {}
+  }
+
+  return false;
+};
+
+/**
+ * Handles an incoming packet.
+ *
+ * @api private
+ */
+
+Manager.prototype.handlePacket = function (sessid, packet) {
+  this.of(packet.endpoint || '').handlePacket(sessid, packet);
+};
+
+/**
+ * Performs authentication.
+ *
+ * @param Object client request data
+ * @api private
+ */
+
+Manager.prototype.authorize = function (data, fn) {
+  if (this.get('authorization')) {
+    var self = this;
+
+    this.get('authorization').call(this, data, function (err, authorized) {
+      self.log.debug('client ' + authorized ? 'authorized' : 'unauthorized');
+      fn(err, authorized);
+    });
+  } else {
+    this.log.debug('client authorized');
+    fn(null, true);
+  }
+
+  return this;
+};
+
+/**
+ * Retrieves the transports adviced to the user.
+ *
+ * @api private
+ */
+
+Manager.prototype.transports = function (data) {
+  var transp = this.get('transports')
+    , ret = [];
+
+  for (var i = 0, l = transp.length; i < l; i++) {
+    var transport = transp[i];
+
+    if (transport) {
+      if (!transport.checkClient || transport.checkClient(data)) {
+        ret.push(transport);
+      }
+    }
+  }
+
+  return ret;
+};
+
+/**
+ * Checks whether a request is a socket.io one.
+ *
+ * @return {Object} a client request data object or `false`
+ * @api private
+ */
+
+var regexp = /^\/([^\/]+)\/?([^\/]+)?\/?([^\/]+)?\/?$/
+
+Manager.prototype.checkRequest = function (req) {
+  var resource = this.get('resource');
+
+  if (req.url.substr(0, resource.length) == resource) {
+    var uri = url.parse(req.url.substr(resource.length), true)
+      , path = uri.pathname || ''
+      , pieces = path.match(regexp);
+
+    // client request data
+    var data = {
+        query: uri.query || {}
+      , headers: req.headers
+      , request: req
+      , path: path
+    };
+
+    if (pieces) {
+      data.protocol = Number(pieces[1]);
+      data.transport = pieces[2];
+      data.id = pieces[3];
+      data.static = !!Manager.static.paths[path];
+    };
+
+    return data;
+  }
+
+  return false;
+};
+
+/**
+ * Declares a socket namespace
+ */
+
+Manager.prototype.of = function (nsp) {
+  if (this.namespaces[nsp]) {
+    return this.namespaces[nsp];
+  }
+
+  return this.namespaces[nsp] = new SocketNamespace(this, nsp);
+};
 end

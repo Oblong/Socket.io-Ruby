@@ -1,3 +1,4 @@
+# node transport.js is in transports/base.rb
 module Transports
   autoload :Base, 'transports/base'
   autoload :FlashSocket, 'transports/flashsocket'
