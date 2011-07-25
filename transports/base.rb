@@ -1,10 +1,7 @@
 module Transport
   class Transport
-    attr_accessor :open, true
-    attr_accessor :discarded, true
-    attr_accessor :id, true
-    attr_accessor :name, true
-    attr_accessor :postEncoded, true
+    attr_accessor :open, :discarded, :id
+    attr_accessor :name, :postEncoded
 
     def packet(obj)
       write parser.encodePacket(obj)
@@ -171,55 +168,53 @@ module Transport
     end
 
     def onMessage packet
-=begin
-  var current = this.manager.transports[this.id];
+      current = @manager.transports[@id]
 
-  if ('heartbeat' == packet.type) {
-    this.log.debug('got heartbeat packet');
+      if 'heartbeat' == packet.type
+        Logger.debug 'got heartbeat packet'
 
-    if (current && current.open) {
-      current.onHeartbeatClear();
-    } else {
-      this.store.publish('heartbeat-clear:' + this.id);
-    }
-  } else {
-    if ('disconnect' == packet.type && packet.endpoint == '') {
-      this.log.debug('got disconnection packet');
+        if (current && current.open)
+          current.onHeartbeatClear
+        else
+          @store.publish("heartbeat-clear:#{@id}")
+        end
+      else 
+        if ('disconnect' == packet.type && packet.endpoint == '')
+          Logger.debug 'got disconnection packet'
 
-      if (current) {
-        current.onForcedDisconnect();
-      } else {
-        this.store.publish('disconnect-force:' + this.id);
-      }
+          if (current) 
+            current.onForcedDisconnect
+          else
+            @store.publish "disconnect-force:#{@id}"
+          end
 
-      return;
-    }
+          return
+        end
 
-    if (packet.id && packet.ack != 'data') {
-      this.log.debug('acknowledging packet automatically');
+        if (packet.id && packet.ack != 'data') 
+          Logger.debug 'acknowledging packet automatically'
 
-      var ack = parser.encodePacket({
-          type: 'ack'
-        , ackId: packet.id
-        , endpoint: packet.endpoint || ''
-      });
+          ack = Parser.encodePacket {
+              :type => 'ack'
+            , :ackId => packet.id
+            , :endpoint => packet.endpoint || ''
+          }
 
-      if (current && current.open) {
-        current.onDispatch(ack);
-      } else {
-        this.manager.onClientDispatch(this.id, ack);
-        this.store.publish('dispatch:' + this.id, ack);
-      }
-    }
+          if (current && current.open) 
+            current.onDispatch ack
+          else
+            @manager.onClientDispatch @id, ack
+            @store.publish "dispatch:#{@id}", ack
+          end 
+        end
 
-    // handle packet locally or publish it
-    if (current) {
-      this.manager.onClientMessage(this.id, packet);
-    } else {
-      this.store.publish('message:' + this.id, packet);
-    }
-  }
-=end
+        # handle packet locally or publish it
+        if (current)
+          @manager.onClientMessage @id, packet
+        else
+          @store.publish "message:#{@id}", packet
+        end
+      end
     end
 
     def clearHeartbeatInterval 

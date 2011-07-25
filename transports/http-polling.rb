@@ -1,7 +1,7 @@
 # This is basically a shell for the http driven transports of
 # xhr-polling
 module Tranport
-  class HttpPolling < Transport::Tranport
+  class HttpPolling < Transport::HTTPTranport
     def initialize(msg, data, req)
       super(msg, data, req)
       @name = 'httppolling'
@@ -28,7 +28,7 @@ module Tranport
     end
 
     def clearTimeouts
-      #HTTPTransport.prototype.clearTimeouts.call(this);
+      super()
       clearPollTimeout
     end
 

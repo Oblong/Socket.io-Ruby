@@ -5,21 +5,26 @@ module Transport
       @name = 'htmlfile'
     end
 
-    def handleRequest req
+    def handleRequest &req
       super(req)
 
       if req.method == 'GET'
-        return [200, {
-          'Content-Type' => 'text/html',
-          'Connection' => 'keep-alive'
-          'Transfer-Encoding' => 'chunked'
-        }, [
-          '<html><body>',
-          '<script>var _ = function (msg) { parent.s._(msg, document); };</script>',
-          (0..174).map{' '}.join
-        ].join('') ]
+        req.response = {
+          :status => 200,
+          :header => {
+            'Content-Type' => 'text/html',
+            'Connection' => 'keep-alive'
+            'Transfer-Encoding' => 'chunked'
+          }, 
+          :body => [
+            '<html><body>',
+            '<script>var _ = function (msg) { parent.s._(msg, document); };</script>',
+            (0..174).map{' '}.join
+          ]
+        }
       end
     end
+
     def write data
       data = '<script>_(' + JSON.stringify(data) + ');</script>'
       
