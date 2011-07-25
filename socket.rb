@@ -5,268 +5,162 @@ class Socket
     @id = id
     @namespace = nsp
     @readable = readable
-=begin
-  this.disconnected = false;
-  this.ackPackets = 0;
-  this.acks = {};
-  this.setFlags();
-  this.store = this.manager.store.client(this.id);
-=end
+    @ackPackets = 0
+    @acks = {}
+    @disconnected = false
+    setFlags
+    @store = @manager.store.client @id
   end
 
   # getters
-  def handshake
-    #return this.manager.handshaken[this.id];
-  end
-
+  def handshake; @manager.handshaken[@id]; end
   def log; @manager.log; end
 
   def json; @flags[:json] = true; end
   def volatile; @flags[:volatile] = true; end
   def broadcast; @flags[:broadcast] = true; end
 
-=begin
-/**
- * Overrides the room to broadcast messages to (flag)
- *
- * @api public
- */
+  def to room
+    @flags[:room] = room
+  end
 
-Socket.prototype.to = function (room) {
-  this.flags.room = room;
-  return this;
-};
+  def setFlags
+    @flags = {
+      :endpoint => @namespace[:name],
+      :room => ''
+    }
+  end
 
-/**
- * Resets flags
- *
- * @api private
- */
+  def onDisconnect reason
+    unless @disconnected
+      _emit 'disconnect', reason
+      @discconnected = true
+    end
+  end
 
-Socket.prototype.setFlags = function () {
-  this.flags = {
-      endpoint: this.namespace.name
-    , room: ''
-  };
-  return this;
-};
+  def join name, fn
+    nsp = @namespace[:name]
+    name = (nsp + '/') + name
 
-/**
- * Triggered on disconnect
- *
- * @api private
- */
+    @manager.onJoin @id, name
+    @manager.store.publish 'join', this.id, name
 
-Socket.prototype.onDisconnect = function (reason) {
-  if (!this.disconnected) {
-    this.$emit('disconnect', reason);
-    this.disconnected = true;
-  }
-};
+    if fn
+      Logger.warn 'Client#join callback is deprecated'
+      fn
+    end
+  end
 
-/**
- * Joins a user to a room.
- *
- * @api public
- */
+  def leave name, fn
+    nsp = @namespace[:name]
+    name = (nsp + '/') + name
 
-Socket.prototype.join = function (name, fn) {
-  var nsp = this.namespace.name
-    , name = (nsp + '/') + name;
+    @manager.onLeave @id, name
+    @manager.store.publish 'leave', this.id, name
 
-  this.manager.onJoin(this.id, name);
-  this.manager.store.publish('join', this.id, name);
+    if fn
+      Logger.warn 'Client#join callback is deprecated'
+      fn
+    end
+  end
 
-  if (fn) {
-    this.log.warn('Client#join callback is deprecated');
-    fn();
-  }
+  def packet _packet
+    if @flags[:broadcast]
+      Logger.debug 'broadcasting packet'
+      #this.namespace.in(this.flags.room).except(this.id).packet(packet);
+    else
+      packet[:endpoint] = @flags[:endpoint]
+      packet = Parser.encodePacket packet
 
-  return this;
-};
+      dispatch packet, @flags[:volatile]
+    end
 
-/**
- * Joins a user to a room.
- *
- * @api public
- */
+    setFlags
+  end
 
-Socket.prototype.leave = function (name, fn) {
-  var nsp = this.namespace.name
-    , name = (nsp + '/') + name;
+  def dispatch packet, volatile
+    if (not @manager.transports[@id].nil?) and @manager.transports[@id].open
+      @manager.transports[@id].onDispatch packet, volatile
+    else
+      unless volatile
+        @manager.onClientDispatch @id, packet, volatile
+      end
+    end
 
-  this.manager.onLeave(this.id, name);
-  this.manager.store.publish('leave', this.id, name);
+    @manager.store.publish "dispatch:#{@id}", packet, volatile
+  end
 
-  if (fn) {
-    this.log.warn('Client#leave callback is deprecated');
-    fn();
-  }
+  def set key, value, fn
+    @store.set key, value fn
+  end
 
-  return this;
-};
+  def get key, fn
+    @store.get key, fn
+  end
 
-/**
- * Transmits a packet.
- *
- * @api private
- */
+  def has key, fn
+    @store.has key, fn
+  end
 
-Socket.prototype.packet = function (packet) {
-  if (this.flags.broadcast) {
-    this.log.debug('broadcasting packet');
-    this.namespace.in(this.flags.room).except(this.id).packet(packet);
-  } else {
-    packet.endpoint = this.flags.endpoint;
-    packet = parser.encodePacket(packet);
+  def del key, fn
+    @store.del key, fn
+  end
 
-    this.dispatch(packet, this.flags.volatile);
-  }
+  def disconnect
+    unless @disconnected
+      Logger.info 'booting client'
+      if (not @manager.transports[@id].nil?) and @manager.transports[@id].open
+        @manager.transports[@id].onForcedDisconnect
+      else
+        @manager.onClientDisconnect @id
+        @manager.store.publish "disconnect:#{@id}"
+      end
+    end
+  end
 
-  this.setFlags();
+  def send(data, fn=nil)
+    _packet = {
+      :type => @flags[:json] ? 'json' : 'message',
+      :data => data
+    }
+    unless fn.nil?
+      @ackPackets += 1
+      _packet[:id] = @ackPackets
+      _packet[:ack] = true
+      @acks[_packet[:id]] = fn
+    end
 
-  return this;
-};
+    packet _packet
+  end
 
-/**
- * Dispatches a packet
- *
- * @api private
- */
+  ## TODO
+  Socket.prototype._emit = EventEmitter.prototype.emit;
 
-Socket.prototype.dispatch = function (packet, volatile) {
-  if (this.manager.transports[this.id] && this.manager.transports[this.id].open) {
-    this.manager.transports[this.id].onDispatch(packet, volatile);
-  } else {
-    if (!volatile) {
-      this.manager.onClientDispatch(this.id, packet, volatile);
+  def emit (*ev)
+    if ev == 'newListener'
+      return _emit.call(*ev)
+      #return this.$emit.apply(this, arguments);
+    end
+
+    args = ev[1..-1]
+    lastArg = ev.last
+
+    _packet = {
+      :type => 'event',
+      :name => ev
     }
 
-    this.manager.store.publish('dispatch:' + this.id, packet, volatile);
-  }
-};
+    ## TODO
+    if ('function' == typeof lastArg) 
+      @ackPackets += 1
+      _packet[:id] = @ackPackets
+      _packet[:ack] = lastArg.length ? 'data' : true
+      @acks[_packet[:id]] = lastArg
+      args = args[0..-2]
+    end 
 
-/**
- * Stores data for the client.
- *
- * @api public
- */
+    _packet[:args] = args;
 
-Socket.prototype.set = function (key, value, fn) {
-  this.store.set(key, value, fn);
-  return this;
-};
-
-/**
- * Retrieves data for the client
- *
- * @api public
- */
-
-Socket.prototype.get = function (key, fn) {
-  this.store.get(key, fn);
-  return this;
-};
-
-/**
- * Checks data for the client
- *
- * @api public
- */
-
-Socket.prototype.has = function (key, fn) {
-  this.store.has(key, fn);
-  return this;
-};
-
-/**
- * Deletes data for the client
- *
- * @api public
- */
-
-Socket.prototype.del = function (key, fn) {
-  this.store.del(key, fn);
-  return this;
-};
-
-/**
- * Kicks client
- *
- * @api public
- */
-
-Socket.prototype.disconnect = function () {
-  if (!this.disconnected) {
-    this.log.info('booting client');
-
-    if (this.manager.transports[this.id] && this.manager.transports[this.id].open) {
-      this.manager.transports[this.id].onForcedDisconnect();
-    } else {
-      this.manager.onClientDisconnect(this.id);
-      this.manager.store.publish('disconnect:' + this.id);
-    }
-  }
-
-  return this;
-};
-
-/**
- * Send a message.
- *
- * @api public
- */
-
-Socket.prototype.send = function (data, fn) {
-  var packet = {
-      type: this.flags.json ? 'json' : 'message'
-    , data: data
-  };
-
-  if (fn) {
-    packet.id = ++this.ackPackets;
-    packet.ack = true;
-    this.acks[packet.id] = fn;
-  }
-
-  return this.packet(packet);
-};
-
-/**
- * Original emit function.
- *
- * @api private
- */
-
-Socket.prototype.$emit = EventEmitter.prototype.emit;
-
-/**
- * Emit override for custom events.
- *
- * @api public
- */
-
-Socket.prototype.emit = function (ev) {
-  if (ev == 'newListener') {
-    return this.$emit.apply(this, arguments);
-  }
-
-  var args = util.toArray(arguments).slice(1)
-    , lastArg = args[args.length - 1]
-    , packet = {
-          type: 'event'
-        , name: ev
-      };
-
-  if ('function' == typeof lastArg) {
-    packet.id = ++this.ackPackets;
-    packet.ack = lastArg.length ? 'data' : true;
-    this.acks[packet.id] = lastArg;
-    args = args.slice(0, args.length - 1);
-  }
-
-  packet.args = args;
-
-  return this.packet(packet);
-};
-  def disc
+    packet _packet
+  end
+end
