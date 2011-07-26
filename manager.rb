@@ -93,12 +93,6 @@ Manager.prototype.configure = function (env, fn) {
 
   return this;
 };
-
-/**
- * Initializes everything related to the message dispatcher.
- *
- * @api private
- */
 =end
    def initStore
      @handshaken = {}
@@ -235,24 +229,20 @@ Manager.prototype.configure = function (env, fn) {
         @store.unsubscribe("disoconnect:#{@id}")
       end
   end
+
+  def handleRequest req, res
+    data = checkRequest req
+
+    unless data
+      @oldListeneres.each { | which |
+        #this.oldListeners[i].call(this.server, req, res);
+      }
+
+      return
+    end
+
+
 =begin
-/**
- * Handles an HTTP request.
- *
- * @api private
- */
-
-Manager.prototype.handleRequest = function (req, res) {
-  var data = this.checkRequest(req);
-
-  if (!data) {
-    for (var i = 0, l = this.oldListeners.length; i < l; i++) {
-      this.oldListeners[i].call(this.server, req, res);
-    }
-
-    return;
-  }
-
   if (data.static || !data.transport && !data.protocol) {
     if (data.static && this.enabled('browser client')) {
       this.handleClientRequest(req, res, data);
@@ -545,37 +535,32 @@ Manager.prototype.handleHandshake = function (data, req, res) {
   })
 };
 
-/**
- * Gets normalized handshake data
- *
- * @api private
- */
+=end
+    def handshakeData data
+      connection = data[:request][:connection]
+      connectionAddress = {}
 
-Manager.prototype.handshakeData = function (data) {
-  var connection = data.request.connection
-    , connectionAddress;
+      if connection[:remoteAddress]
+        connectionAddress = {
+          :address => connection[:remoteAddress],
+          :port => connection[:remotePort]
+        } 
+      elsif connection[:socket] and connection[:socket][:remoteAddress]
+        connectionAddress = {
+          :address => connection[:socket][:remoteAddress],
+          :port => connection[:socket][:remotePort]
+        }
+      end
 
-  if (connection.remoteAddress) {
-    connectionAddress = {
-        address: connection.remoteAddress
-      , port: connection.remotePort
-    }; 
-  } else if (connection.socket && connection.socket.remoteAddress) {
-    connectionAddress = {
-        address: connection.socket.remoteAddress
-      , port: connection.socket.remotePort
-    }; 
-  }
-
-  return {
-      headers: data.headers
-    , address: connectionAddress
-    , time: (new Date).toString()
-    , xdomain: !!data.request.headers.origin
-    , secure: data.request.connection.secure
-  };
-};
-
+      {
+        :headers => data[:headers]
+        :address => connectionAddress,
+ #       :time: (new Date).toString()
+#        :xdomain: !!data.request.headers.origin
+        :secure => data[:request][:connection][:secure]
+      }
+    end
+=begin
 /**
  * Verifies the origin of a request.
  *
@@ -605,17 +590,11 @@ Manager.prototype.verifyOrigin = function (request) {
 
   return false;
 };
-
-/**
- * Handles an incoming packet.
- *
- * @api private
- */
-
-Manager.prototype.handlePacket = function (sessid, packet) {
-  this.of(packet.endpoint || '').handlePacket(sessid, packet);
-};
-
+=end
+    def handlePacket sessid, packet
+      of(packet[:endpoint] || '').handlePacket sessid, packet
+    end
+=begin
 /**
  * Performs authentication.
  *
@@ -638,30 +617,14 @@ Manager.prototype.authorize = function (data, fn) {
 
   return this;
 };
-
-/**
- * Retrieves the transports adviced to the user.
- *
- * @api private
- */
-
-Manager.prototype.transports = function (data) {
-  var transp = this.get('transports')
-    , ret = [];
-
-  for (var i = 0, l = transp.length; i < l; i++) {
-    var transport = transp[i];
-
-    if (transport) {
-      if (!transport.checkClient || transport.checkClient(data)) {
-        ret.push(transport);
+=end
+    def transports data
+      (get 'transports').accept { | which |
+        which and ( !which.checkClient or which.checkClient data )
       }
-    }
-  }
+    end
 
-  return ret;
-};
-
+=begin
 /**
  * Checks whether a request is a socket.io one.
  *
@@ -699,16 +662,8 @@ Manager.prototype.checkRequest = function (req) {
 
   return false;
 };
-
-/**
- * Declares a socket namespace
- */
-
-Manager.prototype.of = function (nsp) {
-  if (this.namespaces[nsp]) {
-    return this.namespaces[nsp];
-  }
-
-  return this.namespaces[nsp] = new SocketNamespace(this, nsp);
-};
+=end
+   def of nsp
+     @namespaces[nsp] = SocketNamespace.new nsp unless @namespaces[nsp]
+   end
 end

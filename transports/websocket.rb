@@ -16,126 +16,118 @@ module Transports
     end
 
     def onSocketConnect
-=begin
+      @socket.setNoDelay true
 
-  this.socket.setNoDelay(true);
+      @buffer = true
+      @buffered = []
 
-  this.buffer = true;
-  this.buffered = [];
+      if @req[:headers][:upgrade] !== 'WebSocket'
+        Logger.warn("#{@name} connection invalid")
+        return doEnd
+      end
 
-  if (this.req.headers.upgrade !== 'WebSocket') {
-    this.log.warn(this.name + ' connection invalid');
-    this.end();
-    return;
-  }
+      origin = @req[:headers][:origin]
 
-  var origin = this.req.headers.origin
-    , location = (this.socket.encrypted ? 'wss' : 'ws')
-               + '://' + this.req.headers.host + this.req.url
-    , waitingForNonce = false;
+      location = (@socket[:encrypted] ? 'wss' : 'ws') + '://' + @req[:headers][:host] + @req[:url]
+      waitingForNonce = false
 
-  if (this.req.headers['sec-websocket-key1']) {
-    // If we don't have the nonce yet, wait for it (HAProxy compatibility).
-    if (! (this.req.head && this.req.head.length >= 8)) {
-      waitingForNonce = true;
-    }
+      if @req[:headers]['sec-web-socket-key1']
+        # If we don't have the nonce yet, wait for it (HAProxy compatibility).
+        if ! (@req[:head] and @req[:head]length >= 8)
+          waitingForNonce = true;
+        end
 
-    var headers = [
-        'HTTP/1.1 101 WebSocket Protocol Handshake'
-      , 'Upgrade: WebSocket'
-      , 'Connection: Upgrade'
-      , 'Sec-WebSocket-Origin: ' + origin
-      , 'Sec-WebSocket-Location: ' + location
-    ];
+        headers = [
+          'HTTP/1.1 101 WebSocket Protocol Handshake',
+          'Upgrade: WebSocket',
+          'Connection: Upgrade',
+          "Sec-WebSocket-Origin: #{origin}",
+          "Sec-WebSocket-Location: #{location}"
+        ]
 
-    if (this.req.headers['sec-websocket-protocol']){
-      headers.push('Sec-WebSocket-Protocol: '
-          + this.req.headers['sec-websocket-protocol']);
-    }
-  } else {
-    var headers = [
-        'HTTP/1.1 101 Web Socket Protocol Handshake'
-      , 'Upgrade: WebSocket'
-      , 'Connection: Upgrade'
-      , 'WebSocket-Origin: ' + origin
-      , 'WebSocket-Location: ' + location
-    ];
-  }
+        if @req[:headers]['sec-websocket-protocol']
+          headers.push "Sec-WebSocket-Protocol: " + @req[:headers]['sec-websocket-protocol']
+        end
+      else
+        headers = [
+          'HTTP/1.1 101 Web Socket Protocol Handshake',
+          'Upgrade: WebSocket',
+          'Connection: Upgrade',
+          "WebSocket-Origin: #{origin}",
+          "WebSocket-Location: #{location}"
+        ]
+      end
 
-  try {
-    this.socket.write(headers.concat('', '').join('\r\n'));
-    this.socket.setTimeout(0);
-    this.socket.setNoDelay(true);
-    this.socket.setEncoding('utf8');
-  } catch (e) {
-    this.end();
-    return;
-  }
+      begin
+        #this.socket.write(headers.concat('', '').join('\r\n'));
+        #this.socket.setTimeout(0);
+        @socket.setNoDelay true
+        @socket.setEncoding 'utf8'
+      rescue(ex)
+        return doEnd
+      end
 
-  if (waitingForNonce) {
-    this.socket.setEncoding('binary');
-  } else if (this.proveReception(headers)) {
-    self.flush();
-  }
+      if waitingForNonce
+        @socket.setEncoding 'binary'
+      elsif proveReception headers
+        flush
+      end
 
-  var headBuffer = '';
+      headBuffer = ''
 
-  this.socket.on('data', function (data) {
-    if (waitingForNonce) {
-      headBuffer += data;
+      @socket.on 'data', { | data | 
+        if waitingForNonce
 
-      if (headBuffer.length < 8) {
-        return;
+          headBuffer << data
+
+          return if headBuffer.length < 8
+
+          # Restore the connection to utf8 encoding after receiving the nonce
+          @socket.setEncoding 'utf8'
+
+          waitingForNonce = false
+
+          # Stuff the nonce into the location where it's expected to be
+          @req[:head] = headBuffer[0..8]
+          headBuffer = ''
+
+          if proveReception headers
+            flush
+          end
+
+          return
+        end
+
+        @parser.add data
       }
-
-      // Restore the connection to utf8 encoding after receiving the nonce
-      self.socket.setEncoding('utf8');
-      waitingForNonce = false;
-
-      // Stuff the nonce into the location where it's expected to be
-      self.req.head = headBuffer.substr(0, 8);
-      headBuffer = '';
-
-      if (self.proveReception(headers)) {
-        self.flush();
-      }
-
-      return;
-    }
-
-    self.parser.add(data);
-  });
-=end
-    end
+   end
 
     def write data
-=begin
-  if (this.open) {
-    this.drained = false;
+      if @open
+        @drained = false
 
-    if (this.buffer) {
-      this.buffered.push(data);
-      return this;
-    }
+        if @buffer
+          return @buffer.push data
+        end
+
+
+=begin
 
     var length = Buffer.byteLength(data)
       , buffer = new Buffer(2 + length);
 
-    buffer.write('\u0000', 'binary');
-    buffer.write(data, 1, 'utf8');
-    buffer.write('\uffff', 1 + length, 'binary');
-
-    try {
-      if (this.socket.write(buffer)) {
-        this.drained = true;
-      }
-    } catch (e) {
-      this.end();
-    }
-
-    this.log.debug(this.name + ' writing', data);
-  }
 =end
+      buffer.write('\u0000', 'binary');
+      buffer.write(data, 1, 'utf8');
+      buffer.write('\uffff', 1 + length, 'binary');
+
+      begin 
+        @drained = true if @socket.write buffer
+      rescue
+        doEnd
+      end 
+
+      Logger.debug("#{@name} writing", data)
     end
 
     def flush
@@ -145,10 +137,10 @@ module Transports
     end
 
     def proveReception headers
+      k1 = @req.headers['sec-websocket-key1']
+      k2 = @req.headers['sec-websocket-key2']
+     
 =begin
-  var self = this
-    , k1 = this.req.headers['sec-websocket-key1']
-    , k2 = this.req.headers['sec-websocket-key2'];
 
   if (k1 && k2){
     var md5 = crypto.createHash('md5');
