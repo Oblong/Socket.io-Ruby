@@ -122,189 +122,120 @@ Manager.prototype.configure = function (env, fn) {
      @connected[id] = true
    end
 
-   def onOpen(id)
-=begin
-Manager.prototype.onOpen = function (id) {
-  this.open[id] = true;
+   def onOpen id
+     @open[id] = true
 
-  // if we were buffering messages for the client, clear them
-  if (this.closed[id]) {
-    var self = this;
+     if @closed[id]
 
-    this.closedA.splice(this.closedA.indexOf(id), 1);
+       #this.closedA.splice(this.closedA.indexOf(id), 1);
+       
+       @store.unsubcribe "dispatch:#{@id}" do | x | 
+         @closed.delete :id 
+       end
+     end
 
-    this.store.unsubscribe('dispatch:' + id, function () {
-      delete self.closed[id];
-    });
-  }
+     if @transports[id]
+       @transports[id].discard
+       @trasnports[id] = nil
+     end
+   end
 
-  // clear the current transport
-  if (this.transports[id]) {
-    this.transports[id].discard();
-    this.transports[id] = null;
-  }
-};
-
-/**
- * Called when a message is sent to a namespace and/or room.
- *
- * @api private
- */
-
-Manager.prototype.onDispatch = function (room, packet, volatile, exceptions) {
-  if (this.rooms[room]) {
-    for (var i = 0, l = this.rooms[room].length; i < l; i++) {
-      var id = this.rooms[room][i];
-
-      if (!~exceptions.indexOf(id)) {
-        if (this.transports[id] && this.transports[id].open) {
-          this.transports[id].onDispatch(packet, volatile);
-        } else if (!volatile) {
-          this.onClientDispatch(id, packet);
+    def onDispatch room, packet, volatile, exceptions
+      if @rooms[room]
+        @rooms.each_index { | i |
+          id = @rooms[room][i]
+          
+          unless exceptions.index[id]
+            if @transports[id] and @transports[id].open
+              @transports[id].onDispatch packet, volatile
+            else if !volatile
+              onClientDispatch id, packet
+            end
+          end
         }
+      end
+    end      
+
+    def onJoin id, name
+      @roomClients[id] = {} if @roomClients[id].nil?
+      @rooms[name] = [] if @rooms[name].nil?
+
+      @rooms[name].push(id)
+      @roomClients[id][name] = true
+    end
+
+    def onLeave id, room
+      if @rooms[room]
+        @rooms[room].reject! { | x | x == id }
+        @roomClients[id].delete room
+      end
+    end
+
+    def onClose id
+      if @open[id]
+        @open.delete id
+      end
+
+      @closed[id] = []
+      @closedA.push id
+
+      @store.subscribe "dispatch:#{@id}", { | packet, volatile |
+        onClientDispatch(id, packet) if not volatile
       }
-    }
-  }
-};
+    end
 
-/**
- * Called when a client joins a nsp / room.
- *
- * @api private
- */
+    def onClientDispatch id, packet
+      if @closed[id]
+        @closed[id].push packet
+      end
+    end
 
-Manager.prototype.onJoin = function (id, name) {
-  if (!this.roomClients[id]) {
-    this.roomClients[id] = [];
-  }
+    def onClientMessage id, packet
+      if @namespaces[packet[:endpoint]]
+        @namespaces[packet[:endpoint].handlePacket id, packet
+      end
+    end
 
-  if (!this.rooms[name]) {
-    this.rooms[name] = [];
-  }
+    def onClientDisconnect id, reason
+      @onDisconnect id
 
-  this.rooms[name].push(id);
-  this.roomClients[id][name] = true;
-};
+      @namespaces.each { | name, value |
+        value.handleDisconnect(id, reason) if @roomClients[id][name]
+      }
+    end
 
-/**
- * Called when a client leaves a nsp / room.
- *
- * @param private
- */
+    def onDisconnect(id, local=nil)
+      @handshaken.delete id
 
-Manager.prototype.onLeave = function (id, room) {
-  if (this.rooms[room]) {
-    this.rooms[room].splice(this.rooms[room].indexOf(id), 1);
-    delete this.roomClients[id][room];
-  }
-};
+      @open.delete(id) if @open[id]
+      @connected.delete(id) if @connected[id]
 
-/**
- * Called when a client closes a request in different node.
- *
- * @api private
- */
+      if @transports[id]
+        @transports[id].discard
+        @transports.delete id
+      end
 
-Manager.prototype.onClose = function (id) {
-  if (this.open[id]) {
-    delete this.open[id];
-  }
+      if @closed[id]
+        @closed.delete id
+        @closedA.reject! { | x | x == id }
+      end
 
-  this.closed[id] = [];
-  this.closedA.push(id);
+      if @roomClientsp[id]
+        @roomClients[id].each { | room, value |
+          @rooms.reject! { | x | x == id }
+        }
+      end
 
-  var self = this;
+      @store.destroyClient id, @get('client store expiration')
 
-  this.store.subscribe('dispatch:' + id, function (packet, volatile) {
-    if (!volatile) {
-      self.onClientDispatch(id, packet);
-    }
-  });
-};
+      @store.unsubscribe("dispatch:#{@id}")
 
-/**
- * Dispatches a message for a closed client.
- *
- * @api private
- */
-
-Manager.prototype.onClientDispatch = function (id, packet) {
-  if (this.closed[id]) {
-    this.closed[id].push(packet);
-  }
-};
-
-/**
- * Receives a message for a client.
- *
- * @api private
- */
-
-Manager.prototype.onClientMessage = function (id, packet) {
-  if (this.namespaces[packet.endpoint]) {
-    this.namespaces[packet.endpoint].handlePacket(id, packet);
-  }
-};
-
-/**
- * Fired when a client disconnects (not triggered).
- *
- * @api private
- */
-
-Manager.prototype.onClientDisconnect = function (id, reason) {
-  this.onDisconnect(id);
-
-  for (var name in this.namespaces) {
-    if (this.roomClients[id][name]) {
-      this.namespaces[name].handleDisconnect(id, reason);
-    }
-  }
-};
-
-/**
- * Called when a client disconnects.
- *
- * @param text
- */
-
-Manager.prototype.onDisconnect = function (id, local) {
-  delete this.handshaken[id];
-
-  if (this.open[id]) {
-    delete this.open[id];
-  }
-
-  if (this.connected[id]) {
-    delete this.connected[id];
-  }
-
-  if (this.transports[id]) {
-    this.transports[id].discard();
-    delete this.transports[id];
-  }
-
-  if (this.closed[id]) {
-    delete this.closed[id];
-    this.closedA.splice(this.closedA.indexOf(id), 1);
-  }
-
-  if (this.roomClients[id]) {
-    for (var room in this.roomClients[id]) {
-      this.rooms[room].splice(this.rooms[room].indexOf(id), 1);
-    }
-  }
-
-  this.store.destroyClient(id, this.get('client store expiration'));
-
-  this.store.unsubscribe('dispatch:' + id);
-
-  if (local) {
-    this.store.unsubscribe('message:' + id);
-    this.store.unsubscribe('disconnect:' + id);
-  }
-};
-
+      if local
+        @store.unsubscribe("message:#{@id}")
+        @store.unsubscribe("disoconnect:#{@id}")
+      end
+  end
+=begin
 /**
  * Handles an HTTP request.
  *
@@ -348,41 +279,29 @@ Manager.prototype.handleRequest = function (req, res) {
     }
   }
 };
+=end
+    def handleUpgrade req, socket, head
+      data = checkRequest req
 
-/**
- * Handles an HTTP Upgrade.
- *
- * @api private
- */
+      if !data
+        if @enabled('destroy upgrade')
+          socket.end
+          Logger.debug 'destroying non-socket.io upgrade'
+        end
 
-Manager.prototype.handleUpgrade = function (req, socket, head) {
-  var data = this.checkRequest(req)
-    , self = this;
+        return
+      end
 
-  if (!data) {
-    if (this.enabled('destroy upgrade')) {
-      socket.end();
-      this.log.debug('destroying non-socket.io upgrade');
-    }
+      req[:head] = head
 
-    return;
-  }
+      handleClient data, req
+    end
 
-  req.head = head;
-  this.handleClient(data, req);
-};
-
-/**
- * Handles a normal handshaken HTTP request (eg: long-polling)
- *
- * @api private
- */
-
-Manager.prototype.handleHTTPRequest = function (data, req, res) {
-  req.res = res;
-  this.handleClient(data, req);
-};
-
+    def handleHTTPRequest data, req, ret
+      req[res] = res
+      @handleClient data, req
+    end
+=begin
 /**
  * Intantiantes a new client.
  *
