@@ -235,7 +235,7 @@ Manager.prototype.configure = function (env, fn) {
 
     unless data
       @oldListeneres.each { | which |
-        #this.oldListeners[i].call(this.server, req, res);
+        which.call(@server, req, res);
       }
 
       return
@@ -289,17 +289,11 @@ Manager.prototype.configure = function (env, fn) {
     req[res] = res
     @handleClient data, req
   end
-=begin
-/**
- * Intantiantes a new client.
- *
- * @api private
- */
 
-Manager.prototype.handleClient = function (data, req) {
-  var socket = req.socket
-    , store = this.store
-    , self = this;
+  def handleClient data, req
+    socket = req[:socket]
+    store = @store
+=begin
 
   if (undefined != data.query.disconnect) {
     if (this.transports[data.id] && this.transports[data.id].open) {

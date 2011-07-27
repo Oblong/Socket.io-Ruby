@@ -137,7 +137,7 @@ class Socket
   Socket.prototype._emit = EventEmitter.prototype.emit;
 
   def emit (*ev)
-    if ev == 'newListener'
+    if ev[0] == 'newListener'
       return _emit.call(*ev)
       #return this.$emit.apply(this, arguments);
     end

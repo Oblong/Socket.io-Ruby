@@ -75,11 +75,10 @@ class SocketNamespace
   end
 
   def emit(*name)
-=begin
-    if (name == 'newListener') {
-      return this.$emit.apply(this, arguments);
-    }
-=end
+    if name[0] == 'newListener'
+      return _emit name
+    end
+
     packet {
       :type => 'event',
       :name => name[0],
@@ -101,120 +100,109 @@ class SocketNamespace
       @sockets[sid].onDisconnect reason
     end
   end
-=begin
-/**
- * Performs authentication.
- *
- * @param Object client request data
- * @api private
- */
 
-SocketNamespace.prototype.authorize = function (data, fn) {
-  if (this.auth) {
-    var self = this;
-
-    this.auth.call(this, data, function (err, authorized) {
-      self.log.debug('client ' +
-        (authorized ? '' : 'un') + 'authorized for ' + self.name);
-      fn(err, authorized);
-    });
-  } else {
-    this.log.debug('client authorized for ' + this.name);
-    fn(null, true);
-  }
-
-  return this;
-};
-
-/**
- * Handles a packet.
- *
- * @api private
- */
-
-SocketNamespace.prototype.handlePacket = function (sessid, packet) {
-  var socket = this.socket(sessid)
-    , dataAck = packet.ack == 'data'
-    , self = this;
-
-  function ack () {
-    self.log.debug('sending data ack packet');
-    socket.packet({
-        type: 'ack'
-      , args: util.toArray(arguments)
-      , ackId: packet.id
-    });
-  };
-
-  function error (err) {
-    self.log.warn('handshake error ' + err + ' for ' + self.name);
-    socket.packet({ type: 'error', reason: err });
-  };
-
-  function connect () {
-    self.manager.onJoin(sessid, self.name);
-    self.store.publish('join', sessid, self.name);
-
-    // packet echo
-    socket.packet({ type: 'connect' });
-
-    // emit connection event
-    self.$emit('connection', socket);
-  };
-
-  switch (packet.type) {
-    case 'connect':
-      if (packet.endpoint == '') {
-        connect();
-      } else {
-        var manager = this.manager
-          , handshakeData = manager.handshaken[sessid];
-
-        this.authorize(handshakeData, function (err, authorized, newData) {
-          if (err) return error(err);
-
-          if (authorized) {
-            manager.onHandshake(sessid, newData || handshakeData);
-            self.store.publish('handshake', sessid, newData || handshakeData);
-            connect();
-          } else {
-            error('unauthorized');
-          }
-        });
+  def authorize data, fn
+    if @auth
+      #this.auth.call(this, data, function (err, authorized) {
+      {
+        self.log.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + self.name);
+        fn(err, authorized);
       }
-      break;
+    else
+      Logger.debug "client authorized for #{@name}"
+      fn nil, true
+    end
+    self
+  end
 
-    case 'ack':
-      if (socket.acks[packet.ackId]) {
-        socket.acks[packet.ackId].apply(socket, packet.args);
-      } else {
-        this.log.info('unknown ack packet');
+  def handlePacket sessid, packet
+    socket = @socket sessid
+    dataAck = packet[:ack] = 'data'
+
+    def ack(*args)
+      Logger.debug 'sending data ack packet'
+      socket.packet {
+        :type => 'ack',
+        :args => args,
+        :ackId => packet[:id]
       }
+    end
+
+    def doError err
+      Logger.warn 'handshake error ' + err + ' for ' + @name
+      socket.packet {
+        :type => 'error',
+        :reason => err
+      }
+    end
+
+    def connect
+      @manager.onjoin sessid, @name
+      @store.publish 'join', sessid, @name
+
+      # packet echo
+      socket.packet { :type => 'connect' }
+
+      # emit connection event
+      _emit 'connection', socket
+    end
+
+    case packet[:type]
+    when 'connect'
+      if packet[:endpoint] == ''
+        connect
+      else
+        manager = @manager
+        handshakeData = manager[:handshaken][sessid];
+
+        authorize handshakeData { |err, authorized, newData|
+          if err 
+            return doError err
+          end
+
+          if authorized
+            manager.onHandshake sessid, newData || handshakeData
+            @store.publish 'handshake', sessid, newData || handshakeData
+            connect
+          else
+            doError 'unauthorized'
+          end
+        }
+      end
+
+    when 'ack'
+      if socket[:acks][packet[:ackId]]
+        #socket.acks[packet.ackId].apply(socket, packet.args);
+      else
+        Logger.info 'unknown ack packet'
+      end 
+
+    when 'event'
+      params = [packet[:name]].concat(packet[:args])
+
+      if dataAck
+        params.push ack
+      end
+
+      #socket._emit.apply(socket, params);
+      break
+
+    when 'disconnect'
+      @manager.onLeave sessid, @name
+      @store.publish 'leave', sessid, @name
+
+      socket._emit 'disconnect', packet[:reason] || 'packet'
       break;
 
-    case 'event':
-      var params = [packet.name].concat(packet.args);
+    when 'json':
+    when 'message':
+      params = ['message', packet[:data]]
 
-      if (dataAck)
-        params.push(ack);
+      if dataAck
+        params.push ack
+      end
 
-      socket.$emit.apply(socket, params);
-      break;
-
-    case 'disconnect':
-      this.manager.onLeave(sessid, this.name);
-      this.store.publish('leave', sessid, this.name);
-
-      socket.$emit('disconnect', packet.reason || 'packet');
-      break;
-
-    case 'json':
-    case 'message':
-      var params = ['message', packet.data];
-
-      if (dataAck)
-        params.push(ack);
-
-      socket.$emit.apply(socket, params);
-  };
-};
+      #socket.$emit.apply(socket, params);
+    end
+  end 
+end

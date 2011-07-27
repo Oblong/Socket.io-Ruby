@@ -23,9 +23,10 @@ module Parser
       data.split('\ufffd').each { | payload |
         ret.push(Parser.decodePacket payload)
       }
+
       return ret
     else 
-      return [Parser.decodePacket data]
+      [Parser.decodePacket data]
     end
   end
 
