@@ -1,236 +1,107 @@
 
-/**
- * Module dependencies.
- */
+class SocketNamespace
+#SocketNamespace.prototype.__proto__ = EventEmitter.prototype;
+#SocketNamespace.prototype.$emit = EventEmitter.prototype.emit;
+  def initialize mgr, name
+    @manager = mgr
+    @name = name || ''
+    @sockets = {}
+    @auth = false
+    setFlags
+  end
 
-var Socket = require('./socket')
-  , EventEmitter = process.EventEmitter
-  , parser = require('./parser')
-  , util = require('./util');
+  def clients room
+    room = @name + (room.nil? '/' + room : '')
 
-/**
- * Exports the constructor.
- */
+    return [] unless @manager[:rooms][room]
 
-exports = module.exports = SocketNamespace;
+    
+    return this.manager.rooms[room].map(function (id) {
+      return this.socket(id);
+    }, this);
+  end
 
-/**
- * Constructor.
- *
- * @api public.
- */
+  def log; @manager.log; end
+  def store; @manager.store; end
+  def json 
+    @flags[:json] = true
+    self
+  end
 
-function SocketNamespace (mgr, name) {
-  this.manager = mgr;
-  this.name = name || '';
-  this.sockets = {};
-  this.auth = false;
-  this.setFlags();
-};
+  def volatile
+    @flags[:volatile] = true
+    self
+  end
 
-/**
- * Inherits from EventEmitter.
- */
+  def in room
+    @flags[:endpoint] = @name + (room.nil? ? '' : '/' + room )
+    self
+  end
 
-SocketNamespace.prototype.__proto__ = EventEmitter.prototype;
+  def except id
+    @flags[:exceptions].push id
+    self
+  end
 
-/**
- * Copies emit since we override it
- *
- * @api private
- */
+  def setFlags
+    @flags = {
+      :endpoint => @name,
+      :exceptions => []
+    }
+    self
+  end
 
-SocketNamespace.prototype.$emit = EventEmitter.prototype.emit;
+  def _packet packet
+    packet[:endpoint] = @name
+    store = @store
+    log = @log
+    volatile = @flags[:volatile]
+    exceptions = @flags[:exceptions]
+    packet = Parser.encodePacket packet
 
-/**
- * Retrieves all clients as Socket instances as an array.
- *
- * @api public
- */
+    @manager.onDispatch @flags[:endpoint], packet, volatile, exceptions
+    @store.publish 'dispatch', @flags[:endpoint], packet, volatile, exceptions
 
-SocketNamespace.prototype.clients = function (room) {
-  var room = this.name + (room !== undefined ?
-     '/' + room : '');
+    setFlags
 
-  if (!this.manager.rooms[room]) {
-    return [];
-  }
+    self
+  end
 
-  return this.manager.rooms[room].map(function (id) {
-    return this.socket(id);
-  }, this);
-};
+  def send data
+    packet {
+      :type => @flags[:json] ? 'json' : 'message',
+      :data => data
+    }
+  end
 
-/**
- * Access logger interface.
- *
- * @api public
- */
+  def emit(*name)
+=begin
+    if (name == 'newListener') {
+      return this.$emit.apply(this, arguments);
+    }
+=end
+    packet {
+      :type => 'event',
+      :name => name[0],
+      :args => name[1..-1]
+    }
+  end
 
-SocketNamespace.prototype.__defineGetter__('log', function () {
-  return this.manager.log;
-});
+  def socket sid, readable
+    @sockets[sid] = Socket.new(@manager, sid, self, readable) unless @sockets[sid]
+  end
 
-/**
- * Access store.
- *
- * @api public
- */
+  def authorization fn
+    @auth = fn
+    self
+  end
 
-SocketNamespace.prototype.__defineGetter__('store', function () {
-  return this.manager.store;
-});
-
-/**
- * JSON message flag.
- *
- * @api public
- */
-
-SocketNamespace.prototype.__defineGetter__('json', function () {
-  this.flags.json = true;
-  return this;
-});
-
-/**
- * Volatile message flag.
- *
- * @api public
- */
-
-SocketNamespace.prototype.__defineGetter__('volatile', function () {
-  this.flags.volatile = true;
-  return this;
-});
-
-/**
- * Overrides the room to relay messages to (flag)
- *
- * @api public
- */
-
-SocketNamespace.prototype.in = function (room) {
-  this.flags.endpoint = this.name + (room ? '/' + room : '');
-  return this;
-};
-
-/**
- * Adds a session id we should prevent relaying messages to (flag)
- *
- * @api public
- */
-
-SocketNamespace.prototype.except = function (id) {
-  this.flags.exceptions.push(id);
-  return this;
-};
-
-/**
- * Sets the default flags.
- *
- * @api private
- */
-
-SocketNamespace.prototype.setFlags = function () {
-  this.flags = {
-      endpoint: this.name
-    , exceptions: []
-  };
-  return this;
-};
-
-/**
- * Sends out a packet
- *
- * @api private
- */
-
-SocketNamespace.prototype.packet = function (packet) {
-  packet.endpoint = this.name;
-
-  var store = this.store
-    , log = this.log
-    , volatile = this.flags.volatile
-    , exceptions = this.flags.exceptions
-    , packet = parser.encodePacket(packet);
-
-  this.manager.onDispatch(this.flags.endpoint, packet, volatile, exceptions);
-  this.store.publish('dispatch', this.flags.endpoint, packet, volatile, exceptions);
-
-  this.setFlags();
-
-  return this;
-};
-
-/**
- * Sends to everyone.
- *
- * @api public
- */
-
-SocketNamespace.prototype.send = function (data) {
-  return this.packet({
-      type: this.flags.json ? 'json' : 'message'
-    , data: data
-  });
-};
-
-/**
- * Emits to everyone (override)
- *
- * @api private
- */
-
-SocketNamespace.prototype.emit = function (name) {
-  if (name == 'newListener') {
-    return this.$emit.apply(this, arguments);
-  }
-
-  return this.packet({
-      type: 'event'
-    , name: name
-    , args: util.toArray(arguments).slice(1)
-  });
-};
-
-/**
- * Retrieves or creates a write-only socket for a client, unless specified.
- *
- * @param {Boolean} whether the socket will be readable when initialized
- * @api private
- */
-
-SocketNamespace.prototype.socket = function (sid, readable) {
-  if (!this.sockets[sid]) {
-    this.sockets[sid] = new Socket(this.manager, sid, this, readable);
-  }
-
-  return this.sockets[sid];
-};
-
-/**
- * Sets authorization for this namespace
- *
- * @api public
- */
-
-SocketNamespace.prototype.authorization = function (fn) {
-  this.auth = fn;
-  return this;
-};
-
-/**
- * Called when a socket disconnects entirely.
- *
- * @api private
- */
-
-SocketNamespace.prototype.handleDisconnect = function (sid, reason) {
-  if (this.sockets[sid] && this.sockets[sid].readable) {
-    this.sockets[sid].onDisconnect(reason);
-  }
-};
-
+  def handleDisconnect sid, reason
+    if @sockets[sid] && @sockets[sid][:readable]
+      @sockets[sid].onDisconnect reason
+    end
+  end
+=begin
 /**
  * Performs authentication.
  *

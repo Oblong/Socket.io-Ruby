@@ -241,56 +241,54 @@ Manager.prototype.configure = function (env, fn) {
       return
     end
 
+    if data[:static] || !data[:transport] && !data[:protocol]
+      if data[:static] && @enabled('browser client')
+        handleClientRequest req, res, data
+      else
+        res.writeHead 200
+        res.end 'Welcomet to socket.io'
 
-=begin
-  if (data.static || !data.transport && !data.protocol) {
-    if (data.static && this.enabled('browser client')) {
-      this.handleClientRequest(req, res, data);
-    } else {
-      res.writeHead(200);
-      res.end('Welcome to socket.io.');
-
-      this.log.info('unhandled socket.io url');
-    }
-
-    return;
-  }
-
-  if (data.protocol != protocol) {
-    res.writeHead(500);
-    res.end('Protocol version not supported.');
-
-    this.log.info('client protocol version unsupported');
-  } else {
-    if (data.id) {
-      this.handleHTTPRequest(data, req, res);
-    } else {
-      this.handleHandshake(data, req, res);
-    }
-  }
-};
-=end
-    def handleUpgrade req, socket, head
-      data = checkRequest req
-
-      if !data
-        if @enabled('destroy upgrade')
-          socket.end
-          Logger.debug 'destroying non-socket.io upgrade'
-        end
-
-        return
+        Logger.info 'unhandled socket.io url'
       end
 
-      req[:head] = head
-
-      handleClient data, req
+      return
     end
 
-    def handleHTTPRequest data, req, ret
-      req[res] = res
-      @handleClient data, req
+    if data[:protocol] != protocol
+      res.writeHead 500
+      res.end 'Protocol version not supported.'
+
+      Logger.info 'client protocol version unsupported'
+    else
+      if data[:id]
+        handleHTTPRequest data, req, res
+      else
+        handleHandshake data, req, res
+      end
     end
+  end
+
+  def handleUpgrade req, socket, head
+    data = checkRequest req
+
+    if !data
+      if @enabled('destroy upgrade')
+        socket.end
+        Logger.debug 'destroying non-socket.io upgrade'
+      end
+
+      return
+    end
+
+    req[:head] = head
+
+    handleClient data, req
+  end
+
+  def handleHTTPRequest data, req, ret
+    req[res] = res
+    @handleClient data, req
+  end
 =begin
 /**
  * Intantiantes a new client.
@@ -471,129 +469,113 @@ Manager.prototype.generateId = function () {
   return Math.abs(Math.random() * Math.random() * Date.now() | 0).toString()
     + Math.abs(Math.random() * Math.random() * Date.now() | 0).toString();
 };
-
-/**
- * Handles a handshake request.
- *
- * @api private
- */
-
-Manager.prototype.handleHandshake = function (data, req, res) {
-  var self = this;
-
-  function writeErr (status, message) {
-    if (data.query.jsonp) {
-      res.writeHead(200, { 'Content-Type': 'application/javascript' });
-      res.end('io.j[' + data.query.jsonp + '](new Error("' + message + '"));');
-    } else {
-      res.writeHead(status);
-      res.end(message);
-    }
-  };
-
-  function error (err) {
-    writeErr(500, 'handshake error');
-    self.log.warn('handshake error ' + err);
-  };
-
-  if (!this.verifyOrigin(req)) {
-    writeErr(403, 'handshake bad origin');
-    return;
-  }
-
-  var handshakeData = this.handshakeData(data);
-
-  this.authorize(handshakeData, function (err, authorized, newData) {
-    if (err) return error(err);
-
-    if (authorized) {
-      var id = self.generateId()
-        , hs = [
-              id
-            , self.get('heartbeat timeout') || ''
-            , self.get('close timeout') || ''
-            , self.transports(data).join(',')
-          ].join(':');
-
-      if (data.query.jsonp) {
-        hs = 'io.j[' + data.query.jsonp + '](' + JSON.stringify(hs) + ');';
-        res.writeHead(200, { 'Content-Type': 'application/javascript' });
-      } else {
-        res.writeHead(200);
-      }
-
-      res.end(hs);
-
-      self.onHandshake(id, newData || handshakeData);
-      self.store.publish('handshake', id, newData || handshakeData);
-
-      self.log.info('handshake authorized', id);
-    } else {
-      writeErr(403, 'handshake unauthorized');
-      self.log.info('handshake unauthorized');
-    }
-  })
-};
-
 =end
-    def handshakeData data
-      connection = data[:request][:connection]
-      connectionAddress = {}
 
-      if connection[:remoteAddress]
-        connectionAddress = {
-          :address => connection[:remoteAddress],
-          :port => connection[:remotePort]
-        } 
-      elsif connection[:socket] and connection[:socket][:remoteAddress]
-        connectionAddress = {
-          :address => connection[:socket][:remoteAddress],
-          :port => connection[:socket][:remotePort]
-        }
+  def handleHandshake data, req, res
+    def writeErr status, message
+      if (data.query.jsonp) 
+        res.writeHead(200, { 'Content-Type' => 'application/javascript' })
+        res.end('io.j[' + data[:query][:jsonp] + '](new Error("' + message + '"));')
+      else
+        res.writeHead(status)
+        res.end(message)
+      end
+    end
+
+    def doError err
+      writeErr 500, 'handshake error'
+      Logger.warn "handshake error #{err}"
+    end
+
+    unless verifyOrigin req
+      writeErr 403, 'handshake bad origin'
+      return
+    end
+
+    handshakeData = handshakeData data
+
+    authorize handshakeData, { |err, authorized, newData|
+      if err 
+        return error(err)
       end
 
-      {
-        :headers => data[:headers]
-        :address => connectionAddress,
- #       :time: (new Date).toString()
-#        :xdomain: !!data.request.headers.origin
-        :secure => data[:request][:connection][:secure]
+      if authorized
+        id = generateId
+        hs = [ id, 
+              get('heartbeat timeout') || '',
+              get('close timeout') || ''
+              transports(data).join(',')
+            ].join(':')
+
+        if data[:query][:jsonp]
+          hs = 'io.j[' + data[:query][:jsonp] + '](' + JSON.stringify(hs) + ');'
+          res.writeHead 200, { 'Content-Type' => 'application/javascript' })
+        else 
+          res.writeHead 200
+        end 
+
+        res.end hs
+
+        onHandshake id, newData || handshakeData
+        @store.publish 'handshake', id, newData || handshakeData
+
+        self.log.info('handshake authorized', id);
+      else 
+        writeErr 403, 'handshake unauthorized'
+        self.log.info('handshake unauthorized');
+      end 
+    }
+  end
+
+  def handshakeData data
+    connection = data[:request][:connection]
+    connectionAddress = {}
+
+    if connection[:remoteAddress]
+      connectionAddress = {
+        :address => connection[:remoteAddress],
+        :port => connection[:remotePort]
+      } 
+    elsif connection[:socket] and connection[:socket][:remoteAddress]
+      connectionAddress = {
+        :address => connection[:socket][:remoteAddress],
+        :port => connection[:socket][:remotePort]
       }
     end
-=begin
-/**
- * Verifies the origin of a request.
- *
- * @api private
- */
 
-Manager.prototype.verifyOrigin = function (request) {
-  var origin = request.headers.origin
-    , origins = this.get('origins');
+    {
+      :headers => data[:headers]
+      :address => connectionAddress,
+#       :time: (new Date).toString()
+#        :xdomain: !!data.request.headers.origin
+      :secure => data[:request][:connection][:secure]
+    }
+  end
 
-  if (origin === 'null') origin = '*';
+  def verifyOrigin request
+    origin = request[:header][:origin]
+    origins = get('origins')
+    # , origins = this.get('origins');
+    
+    origin = '*' if origin.nil? 
 
-  if (origins.indexOf('*:*') !== -1) {
-    return true;
-  }
+    return true if origins.index('*:*')
 
-  if (origin) {
-    try {
-      var parts = url.parse(origin);
+    if origin
+      begin
+        parts = url.parse origin
 
-      return
-        ~origins.indexOf(parts.host + ':' + parts.port) ||
-        ~origins.indexOf(parts.host + ':*') ||
-        ~origins.indexOf('*:' + parts.port);
-    } catch (ex) {}
-  }
+        return origins.index(parts[:host] + ':' + parts[:port]) || origins.index(parts[:host] + ':*') || origins.index('*:' + parts[:port])
 
-  return false;
-};
-=end
-    def handlePacket sessid, packet
-      of(packet[:endpoint] || '').handlePacket sessid, packet
+      rescue; end
     end
+
+    return false
+  end
+
+  def handlePacket sessid, packet
+    of(packet[:endpoint] || '').handlePacket sessid, packet
+  end
 =begin
 /**
  * Performs authentication.
