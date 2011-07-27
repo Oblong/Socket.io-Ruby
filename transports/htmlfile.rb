@@ -29,7 +29,7 @@ module Transport
       data = '<script>_(' + JSON.stringify(data) + ');</script>'
       
       @response.write data
-      #this.drained = true;
+      @drained = true;
 
       Logger.debug("#{@name} writing", data)
     end

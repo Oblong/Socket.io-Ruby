@@ -252,13 +252,12 @@ module Transport
       close
       clearTimeouts
       @disconnected = true
-=begin
-    if (local) {
-      this.manager.onClientDisconnect(this.id, reason, true);
-    } else {
-      this.store.publish('disconnect:' + this.id, reason);
-    }
-=end
+
+      if local
+        @manager.onClientDisconnect @id, reason, true
+      else 
+        @store.publish 'disconnect:' + @id, reason
+      end 
     end
 
     def discard 

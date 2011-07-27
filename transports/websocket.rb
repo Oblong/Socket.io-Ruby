@@ -59,8 +59,8 @@ module Transports
       end
 
       begin
-        #this.socket.write(headers.concat('', '').join('\r\n'));
-        #this.socket.setTimeout(0);
+        #@socket.write(headers.concat('', '').join('\r\n'));
+        #@socket.setTimeout(0);
         @socket.setNoDelay true
         @socket.setEncoding 'utf8'
       rescue(ex)
@@ -167,7 +167,7 @@ module Transports
     md5.update(this.req.head.toString('binary'));
 
     try {
-      this.socket.write(md5.digest('binary'), 'binary');
+      @socket.write(md5.digest('binary'), 'binary');
     } catch (e) {
       this.end();
     }
@@ -205,29 +205,30 @@ module Transports
 
       def parse
 =begin
-  for (var i = this.i, chr, l = this.buffer.length; i < l; i++){
-    chr = this.buffer[i];
+  for (var i = @i, chr, l = @buffer.length; i < l; i++){
+    chr = @buffer[i];
 
-    if (this.buffer.length == 2 && this.buffer[1] == '\u0000') {
-      this.emit('close');
-      this.buffer = '';
-      this.i = 0;
+    if (@buffer.length == 2 && @buffer[1] == '\u0000') 
+      emit('close');
+      @buffer = '';
+      @i = 0;
       return;
-    }
+    end
 
-    if (i === 0){
+    if (i === 0)
       if (chr != '\u0000')
-        this.error('Bad framing. Expected null byte as first frame');
+        doError('Bad framing. Expected null byte as first frame');
       else
         continue;
-    }
+      end
+    end
 
-    if (chr == '\ufffd'){
-      this.emit('data', this.buffer.substr(1, i - 1));
-      this.buffer = this.buffer.substr(i + 1);
-      this.i = 0;
-      return this.parse();
-    }
+    if (chr == '\ufffd')
+      emit('data', @buffer.substr(1, i - 1));
+      @buffer = @buffer.substr(i + 1);
+      @i = 0;
+      return parse
+    end 
   }
 =end
       end

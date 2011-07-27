@@ -25,7 +25,7 @@ module Manager
     , 'browser client etag'=> false
     , 'browser client handler'=> false
     , 'client store expiration'=> 15
-  };
+  }
 
   def self.handshakeData; end
 
@@ -70,7 +70,7 @@ module Manager
     transp.each { |transport|
       if (transport) 
         if (!transport.checkClient || transport.checkClient(data)) 
-          ret.push(transport);
+          ret.push(transport)
         end
       end
     end 
@@ -78,21 +78,15 @@ module Manager
     ret
   end
 =begin
-/**
- * Configure callbacks.
- *
- * @api public
- */
+  def configure env, fn
+    if ('function' == typeof env) {
+      env.call(this)
+    else if (env == process.env.NODE_ENV) {
+      fn.call(this)
+    end
 
-Manager.prototype.configure = function (env, fn) {
-  if ('function' == typeof env) {
-    env.call(this);
-  } else if (env == process.env.NODE_ENV) {
-    fn.call(this);
-  }
-
-  return this;
-};
+    self
+  end
 =end
    def initStore
      @handshaken = {}
@@ -121,7 +115,7 @@ Manager.prototype.configure = function (env, fn) {
 
      if @closed[id]
 
-       #this.closedA.splice(this.closedA.indexOf(id), 1);
+       #@closedA.splice(@closedA.indexOf(id), 1)
        
        @store.unsubcribe "dispatch:#{@id}" do | x | 
          @closed.delete :id 
@@ -235,7 +229,7 @@ Manager.prototype.configure = function (env, fn) {
 
     unless data
       @oldListeneres.each { | which |
-        which.call(@server, req, res);
+        which.call(@server, req, res)
       }
 
       return
@@ -296,163 +290,142 @@ Manager.prototype.configure = function (env, fn) {
 =begin
 
   if (undefined != data.query.disconnect) {
-    if (this.transports[data.id] && this.transports[data.id].open) {
-      this.transports[data.id].onForcedDisconnect();
+    if (this.transports[data[:id]] && this.transports[data[:id]].open) {
+      this.transports[data[:id]].onForcedDisconnect()
     } else {
-      this.store.publish('disconnect-force:' + data.id);
+      this.store.publish('disconnect-force:' + data[:id])
     }
-    return;
+    return
   }
 
   if (!~this.get('transports').indexOf(data.transport)) {
-    this.log.warn('unknown transport: "' + data.transport + '"');
-    req.connection.end();
-    return;
+    this.log.warn('unknown transport: "' + data.transport + '"')
+    req.connection.end()
+    return
   }
 
-  var transport = new transports[data.transport](this, data, req);
+  var transport = new transports[data.transport](this, data, req)
 
-  if (this.handshaken[data.id]) {
-    if (transport.open) {
-      if (this.closed[data.id] && this.closed[data.id].length) {
-        transport.payload(this.closed[data.id]);
-        this.closed[data.id] = [];
+=end
+  if @handshaken[data[:id]]
+    if transport.open
+      if @closed[data[:id]] && @closed[data[:id]].length
+        transport.payload(@closed[data[:id]])
+        @closed[data[:id]] = []
+      end
+
+      onOpen(data[:id])
+      @store.publish('open', data[:id])
+      @transports[data[:id]] = transport
+    end
+
+    if !this.connected[data[:id]]
+      onConnect data[:id]
+      @store.publish 'connect', data[:id]
+
+      #initialize the socket for all namespaces
+      @namespaces.each { | which |
+        socket = which.socket data[:id], true
+
+        # echo back connect packet and fire connection event
+        which.handlePacket data[:id], { type: 'connect' }
       }
 
-      this.onOpen(data.id);
-      this.store.publish('open', data.id);
-      this.transports[data.id] = transport;
-    }
-
-    if (!this.connected[data.id]) {
-      this.onConnect(data.id);
-      this.store.publish('connect', data.id);
-
-      // initialize the socket for all namespaces
-      for (var i in this.namespaces) {
-        var socket = this.namespaces[i].socket(data.id, true);
-
-        // echo back connect packet and fire connection event
-        if (i === '') {
-          this.namespaces[i].handlePacket(data.id, { type: 'connect' });
-        }
+      @store.subscribe 'message:' + data[:id], { |packet| {
+        onClientMessage data[:id], packet
       }
 
-      this.store.subscribe('message:' + data.id, function (packet) {
-        self.onClientMessage(data.id, packet);
-      });
+      @store.subscribe 'disconnect:' + data[:id], { |reason| {
+        onClientDisconnect data[:id], reason
+      }
+    else
+      if transport.open
+        tranport.error 'client not handshaken', 'reconnect'
+      end
 
-      this.store.subscribe('disconnect:' + data.id, function (reason) {
-        self.onClientDisconnect(data.id, reason);
-      });
-    }
-  } else {
-    if (transport.open) {
-      transport.error('client not handshaken', 'reconnect');
-    }
+      transport.discard
+    end
+  end
 
-    transport.discard();
+  Manager[:static] = {
+    :cache => {},
+    :paths => {
+      '/static/flashsocket/WebSocketMain.swf' => client[:dist] + '/WebSocketMain.swf',
+      '/static/flashsocket/WebSocketMainInsecure.swf' => client[:dist] + '/WebSocketMainInsecure.swf',
+      '/socket.io.js' => client[:dist] + '/socket.io.js',
+      '/socket.io.js.min' => client[:dist]+ '/socket.io.min.js'
+    }, 
+    :mime => {
+      :js => {
+         'contentType' => 'application/javascript',
+         'encoding' => 'utf8'
+      },
+      :swf => {
+          'contentType' => 'application/x-shockwave-flash',
+          'encoding' => 'binary'
+      }
+    }
   }
-};
 
-/**
- * Dictionary for static file serving
- *
- * @api public
- */
 
-Manager.static = {
-    cache: {}
-  , paths: {
-        '/static/flashsocket/WebSocketMain.swf': client.dist + '/WebSocketMain.swf'
-      , '/static/flashsocket/WebSocketMainInsecure.swf':
-          client.dist + '/WebSocketMainInsecure.swf'
-      , '/socket.io.js':  client.dist + '/socket.io.js'
-      , '/socket.io.js.min': client.dist + '/socket.io.min.js'
-    }
-  , mime: {
-        'js': {
-            contentType: 'application/javascript'
-          , encoding: 'utf8'
-        }
-      , 'swf': {
-            contentType: 'application/x-shockwave-flash'
-          , encoding: 'binary'
-        }
-    }
-};
 
-/**
- * Serves the client.
- *
- * @api private
- */
-
-Manager.prototype.handleClientRequest = function (req, res, data) {
+  def handleClientRequest req, res, data
+=begin
   var static = Manager.static
     , extension = data.path.split('.').pop()
     , file = data.path + (this.enabled('browser client minification')
         && extension == 'js' ? '.min' : '')
     , location = static.paths[file]
-    , cache = static.cache[file];
+    , cache = static.cache[file]
 
-  var self = this;
+=end
+    def write status, headers, content, encoding
+      res.writeHead status, headers || nil
+      res.end content || '', encoding || nil
+    end
 
-  /**
-   * Writes a response, safely
-   *
-   * @api private
-   */
-
-  function write (status, headers, content, encoding) {
-    try {
-      res.writeHead(status, headers || null);
-      res.end(content || '', encoding || null);
-    } catch (e) {}
-  }
-
-  function serve () {
-    if (req.headers['if-none-match'] === cache.Etag) {
-      return write(304);
-    }
-
-    var mime = static.mime[extension]
-      , headers = {
-      'Content-Type': mime.contentType
-    , 'Content-Length': cache.length
-    };
-
-    if (self.enabled('browser client etag') && cache.Etag) {
-      headers.Etag = cache.Etag;
-    }
-
-    write(200, headers, cache.content, mime.encoding);
-    self.log.debug('served static ' + data.path);
-  }
-
-  if (this.get('browser client handler')) {
-    this.get('browser client handler').call(this, req, res);
-  } else if (!cache) {
-    fs.readFile(location, function (err, data) {
-      if (err) {
-        write(500, null, 'Error serving static ' + data.path);
-        self.log.warn('Can\'t cache '+ data.path +', ' + err.message);
-        return;
+    def serve
+      if req[:headers]['if-none-match'] == # cache.Etag) {
+        return write 304
+      end
+      
+      mime = static[mime][extension]
+      headers = {
+        'Content-Type' => mime[:contentType],
+        'Content-Length' => cache.length
       }
 
-      cache = Manager.static.cache[file] = {
-        content: data
-      , length: data.length
-      , Etag: client.version
-      };
+      if @enabled('browser client etag') && cache[:Etag]
+        headersp[:Etag] = cache[:Etag]
+      end 
 
-      serve();
-    });
-  } else {
-    serve();
-  }
-};
+      write 200, headers, cache[:content], mime[:encoding]
+      Logger.debug 'served static ' + data.path
+    end
 
+    if get('browser client handler')
+      #this.get('browser client handler').call(this, req, res)
+    else if cache.nil?
+      fs.readFile location, { |err, data|
+        if (err) 
+          write 500, null, 'Error serving static ' + data.path
+          Logger.warn 'Can\'t cache '+ data.path +', ' + err.message
+          return
+        end
+
+        cache = Manager.static.cache[file] = {
+          :content => data
+          :length => data.length,
+          :Etag => client[:version]
+        }
+
+        serve
+      }
+    else
+      serve
+    end 
+  end
+=begin
 /**
  * Generates a session id.
  *
@@ -461,8 +434,8 @@ Manager.prototype.handleClientRequest = function (req, res, data) {
 
 Manager.prototype.generateId = function () {
   return Math.abs(Math.random() * Math.random() * Date.now() | 0).toString()
-    + Math.abs(Math.random() * Math.random() * Date.now() | 0).toString();
-};
+    + Math.abs(Math.random() * Math.random() * Date.now() | 0).toString()
+}
 =end
 
   def handleHandshake data, req, res
@@ -513,10 +486,10 @@ Manager.prototype.generateId = function () {
         onHandshake id, newData || handshakeData
         @store.publish 'handshake', id, newData || handshakeData
 
-        self.log.info('handshake authorized', id);
+        self.log.info('handshake authorized', id)
       else 
         writeErr 403, 'handshake unauthorized'
-        self.log.info('handshake unauthorized');
+        self.log.info('handshake unauthorized')
       end 
     }
   end
@@ -549,7 +522,7 @@ Manager.prototype.generateId = function () {
   def verifyOrigin request
     origin = request[:header][:origin]
     origins = get('origins')
-    # , origins = this.get('origins');
+    # , origins = this.get('origins')
     
     origin = '*' if origin.nil? 
 
@@ -570,35 +543,26 @@ Manager.prototype.generateId = function () {
   def handlePacket sessid, packet
     of(packet[:endpoint] || '').handlePacket sessid, packet
   end
-=begin
-/**
- * Performs authentication.
- *
- * @param Object client request data
- * @api private
- */
 
-Manager.prototype.authorize = function (data, fn) {
-  if (this.get('authorization')) {
-    var self = this;
-
-    this.get('authorization').call(this, data, function (err, authorized) {
-      self.log.debug('client ' + authorized ? 'authorized' : 'unauthorized');
-      fn(err, authorized);
-    });
-  } else {
-    this.log.debug('client authorized');
-    fn(null, true);
-  }
-
-  return this;
-};
-=end
-    def transports data
-      (get 'transports').accept { | which |
-        which and ( !which.checkClient or which.checkClient data )
-      }
+  def authorize data, fn
+    if get('authorize')
+      get('authorization')
+      this.get('authorization').call(this, data, function (err, authorized) {
+        self.log.debug('client ' + authorized ? 'authorized' : 'unauthorized')
+        fn(err, authorized)
+      })
+    else
+      Logger.debug 'client authorized'
+      fn nil, true
     end
+    self
+  end
+
+  def transports data
+    (get 'transports').accept { | which |
+      which and ( !which.checkClient or which.checkClient data )
+    }
+  end
 
 =begin
 /**
@@ -609,37 +573,39 @@ Manager.prototype.authorize = function (data, fn) {
  */
 
 var regexp = /^\/([^\/]+)\/?([^\/]+)?\/?([^\/]+)?\/?$/
+=end
+  def checkRequeest req
+    resource = get('resource')
 
-Manager.prototype.checkRequest = function (req) {
-  var resource = this.get('resource');
-
+=begin
   if (req.url.substr(0, resource.length) == resource) {
-    var uri = url.parse(req.url.substr(resource.length), true)
+    uri = url.parse(req.url.substr(resource.length), true)
       , path = uri.pathname || ''
-      , pieces = path.match(regexp);
+      , pieces = path.match(regexp)
 
-    // client request data
-    var data = {
-        query: uri.query || {}
-      , headers: req.headers
-      , request: req
-      , path: path
-    };
+    # client request data
+    data = {
+      :query => uri.query || {},
+      :headers => req.headers,
+      :request => req,
+      :path => path
+    }
 
     if (pieces) {
-      data.protocol = Number(pieces[1]);
-      data.transport = pieces[2];
-      data.id = pieces[3];
-      data.static = !!Manager.static.paths[path];
-    };
+      data[:protocol] = Number(pieces[1])
+      data[:transport] = pieces[2]
+      data[:id] = pieces[3]
+      data.static = !!Manager.static.paths[path]
+    }
 
-    return data;
+    return data
   }
-
-  return false;
-};
 =end
-   def of nsp
-     @namespaces[nsp] = SocketNamespace.new nsp unless @namespaces[nsp]
-   end
+
+    false
+  end
+
+  def of nsp
+    @namespaces[nsp] = SocketNamespace.new nsp unless @namespaces[nsp]
+  end
 end

@@ -184,7 +184,7 @@ class SocketNamespace
         params.push ack
       end
 
-      #socket._emit.apply(socket, params);
+      socket._emit socket, params
       break
 
     when 'disconnect'
@@ -202,7 +202,7 @@ class SocketNamespace
         params.push ack
       end
 
-      #socket.$emit.apply(socket, params);
+      socket._emit socket, params
     end
   end 
 end

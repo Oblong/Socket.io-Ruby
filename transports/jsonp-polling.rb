@@ -7,12 +7,7 @@ module Transport
       @postEncoded = true
       @head = 'io.j[0]('
       @foot = ');'
-
-=begin
-  if (data.query.i) {
-    this.head = 'io.j[' + data.query.i + '](';
-  }
-=end
+      @head = 'io.j[' + data.query.i + '](' if data[:query][:i]
     end
 
     def doWrite data
@@ -24,7 +19,7 @@ module Transport
       data = JSON.encode(data) unless data.kind_of? String
 
       @socket.emit data
-#  this.log.debug(this.name + ' writing', data);
+      Logger.debug @name + ' writing', data
     end
   end
 end
