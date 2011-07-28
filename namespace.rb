@@ -106,11 +106,11 @@ class SocketNamespace
     if @auth
       #TODO
       @auth(data, { | err, authorized |
-        Logger.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + @name)
+        log.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + @name)
         fn(err, authorized);
       })
     else
-      Logger.debug "client authorized for #{@name}"
+      log.debug "client authorized for #{@name}"
       fn nil, true
     end
     self
@@ -121,7 +121,7 @@ class SocketNamespace
     dataAck = packet[:ack] = 'data'
 
     def ack(*args)
-      Logger.debug 'sending data ack packet'
+      log.debug 'sending data ack packet'
 
       socket.packet({
         :type => 'ack',
@@ -131,7 +131,7 @@ class SocketNamespace
     end
 
     def doError err
-      Logger.warn 'handshake error ' + err + ' for ' + @name
+      log.warn 'handshake error ' + err + ' for ' + @name
 
       socket.packet({
         :type => 'error',
@@ -178,7 +178,7 @@ class SocketNamespace
       if socket[:acks][packet[:ackId]]
         socket[:acks][packet[:ackId]] socket, packet.args
       else
-        Logger.info 'unknown ack packet'
+        log.info 'unknown ack packet'
       end 
 
     when 'event'

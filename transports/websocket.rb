@@ -7,7 +7,7 @@ module Transports
       @parser = Parser.new
 
       @parser.on :data { | packet |
-        Logger.debug packet
+        log.debug packet
         onMessage Parser.decodePacket(packet)
       }
 
@@ -22,7 +22,7 @@ module Transports
       @buffered = []
 
       if @req[:headers][:upgrade] !== 'WebSocket'
-        Logger.warn("#{@name} connection invalid")
+        log.warn("#{@name} connection invalid")
         return doEnd
       end
 
@@ -126,7 +126,7 @@ module Transports
           doEnd
         end 
 
-        Logger.debug("#{@name} writing", data)
+        log.debug("#{@name} writing", data)
       end
     end
 

@@ -1,13 +1,17 @@
-module Logger
-  def self.write msg
+class Logger
+  def initialize(*args); end
+
+  def write msg
     $stderr.puts msg
   end
 
-  def self.info msg
-    Logger.write "Info: #{msg}"
+  def warn(*msg)
+    write "Warn: #{msg.join(' ')}"
   end
-
-  def self.debug msg
-    Logger.write "Debug: #{msg}"
+  def info(*msg)
+    write "Info: #{msg.join(' ')}"
+  end
+  def debug(*msg)
+    write "Debug: #{msg.join(' ')}"
   end
 end

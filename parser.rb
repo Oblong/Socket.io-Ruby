@@ -24,7 +24,7 @@ module Parser
         ret.push(Parser.decodePacket payload)
       }
 
-      return ret
+      ret
     else 
       [Parser.decodePacket data]
     end

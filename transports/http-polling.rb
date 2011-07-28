@@ -22,8 +22,8 @@ module Tranport
     def clearPollTimeout
       unless @timer.nil?
         @timer.cancel 
-        @timer = nil;
-        Logger.debug 'clearing poll timeout'
+        @timer = nil
+        log.debug 'clearing poll timeout'
       end
     end
 
@@ -38,7 +38,7 @@ module Tranport
     
     def write(data, close)
       doWrite data
-      @response.end
+      @response.doEnd
       onClose
     end
 

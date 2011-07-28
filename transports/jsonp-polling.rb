@@ -22,7 +22,7 @@ module Transport
       data = JSON.generate(data) unless data.kind_of? String
 
       @socket.emit data
-      Logger.debug @name + ' writing', data
+      log.debug @name + ' writing', data
     end
   end
 end

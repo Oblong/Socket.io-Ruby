@@ -40,7 +40,7 @@ module Transport
 
     def onData data
       Parser.decodePayload(data).each { | message |
-        Logger.debug "#{@name} received data #{message}"
+        log.debug "#{@name} received data #{message}"
         onMessage message
       }
     end

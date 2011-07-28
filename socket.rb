@@ -46,7 +46,7 @@ class Socket
     @manager.store.publish 'join', @id, name
 
     if fn
-      Logger.warn 'Client#join callback is deprecated'
+      log.warn 'Client#join callback is deprecated'
       fn
     end
   end
@@ -59,14 +59,14 @@ class Socket
     @manager.store.publish 'leave', @id, name
 
     if fn
-      Logger.warn 'Client#join callback is deprecated'
+      log.warn 'Client#join callback is deprecated'
       fn
     end
   end
 
   def packet _packet
     if @flags[:broadcast]
-      Logger.debug 'broadcasting packet'
+      log.debug 'broadcasting packet'
       # TODO
       #@namespace.in(this.flags.room).except(@id).packet(packet);
     else
@@ -109,7 +109,7 @@ class Socket
 
   def disconnect
     unless @disconnected
-      Logger.info 'booting client'
+      log.info 'booting client'
       if (not @manager.transports[@id].nil?) and @manager.transports[@id].open
         @manager.transports[@id].onForcedDisconnect
       else

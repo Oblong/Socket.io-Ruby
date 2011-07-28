@@ -31,7 +31,7 @@ module Transport
       @response.write data
       @drained = true
 
-      Logger.debug "#{@name} writing", data
+      log.debug "#{@name} writing", data
     end
   end
 end

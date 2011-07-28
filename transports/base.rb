@@ -8,7 +8,7 @@ module Transport
     end
 
     def handleRequest req
-      Logger.debug 'setting request', req.method, req.url
+      log.debug 'setting request', req.method, req.url
       @req = req
 
       if req.method == 'GET'
@@ -73,7 +73,7 @@ module Transport
         onClose
       end
 
-      Logger.info('socket error') 
+      log.info('socket error') 
     end
 
     def onSocketDrain
@@ -87,7 +87,7 @@ module Transport
 
     def onForcedDisconnect
       unless @disconnected
-        Logger.info 'transport end by forced client disconnection'
+        log.info 'transport end by forced client disconnection'
 
         if @open
           packet { 
@@ -111,12 +111,12 @@ module Transport
       if @closeTimeout.nil?
 
         @closeTimeout = EventMachine::Timer.new(Manager.settings['close timeout'] * 1000) do | x |
-          Logger.debug('fired close timeout for client')
+          log.debug('fired close timeout for client')
           @closeTimeout = nil
           doEnd 'close timeout'
         end
       end
-      Logger.debug('set close timeout for client')
+      log.debug('set close timeout for client')
     end
 
     def clearCloseTimeout
@@ -124,7 +124,7 @@ module Transport
         clearTimeout @closeTimeout
         @closeTimeout = nil
 
-        Logger.debug 'cleared close timeout for client'
+        log.debug 'cleared close timeout for client'
       end
     end
 
@@ -132,11 +132,11 @@ module Transport
       if @heartbeatTimeout.nil?
 
         @heartbeatTimeout = EventMachine::Timer.new(Manager.settings['heartbeat timeout'] * 1000) do | x |
-          Logger.debug 'fired heartbeat timeout for client'
+          log.debug 'fired heartbeat timeout for client'
           @heartbeatTimeout = nil
           doEnd 'heartbeat timeout'
         end
-        Logger.debug('set heartbeat timeout for client')
+        log.debug('set heartbeat timeout for client')
       end
     end
 
@@ -144,7 +144,7 @@ module Transport
       unless @heartbeatTimeout.nil?
         clearTimeout @heartbeatTimeout
         @heartbeatTimeout = nil
-        Logger.debug 'cleared heartbeat timeout for client'
+        log.debug 'cleared heartbeat timeout for client'
       end
     end
 
@@ -155,7 +155,7 @@ module Transport
           @heartbeatInterval = nil
         end
       end
-      Logger.debug('set heartbeat interval for client')
+      log.debug('set heartbeat interval for client')
     end
 
     def clearTimeouts
@@ -166,7 +166,7 @@ module Transport
 
     def heartbeat
       if @open
-        Logger.debug 'emitting heartbeat for client'
+        log.debug 'emitting heartbeat for client'
 
         packet { 
           :type => :heartbeat 
@@ -180,7 +180,7 @@ module Transport
       current = @manager.transports[@id]
 
       if 'heartbeat' == packet[:type]
-        Logger.debug 'got heartbeat packet'
+        log.debug 'got heartbeat packet'
 
         if (current && current.open)
           current.onHeartbeatClear
@@ -189,7 +189,7 @@ module Transport
         end
       else 
         if ('disconnect' == packet[:type] && packet[:endpoint] == '')
-          Logger.debug 'got disconnection packet'
+          log.debug 'got disconnection packet'
 
           if current
             current.onForcedDisconnect
@@ -201,7 +201,7 @@ module Transport
         end
 
         if (packet[:id] && packet[:ack] != 'data') 
-          Logger.debug 'acknowledging packet automatically'
+          log.debug 'acknowledging packet automatically'
 
           ack = Parser.encodePacket {
             :type => 'ack',
@@ -230,7 +230,7 @@ module Transport
       unless @heartbeatInterval.nil?
         clearTimeout @heartbeatInterval
         @heartbeatInterval = nil
-        Logger.debug 'cleared heartbeat interval for client', @id
+        log.debug 'cleared heartbeat interval for client', @id
       end
     end
 
@@ -271,7 +271,7 @@ module Transport
     end
 
     def discard 
-      Logger.debug 'discarding transport'
+      log.debug 'discarding transport'
       @discarded = true
       clearTimeouts
       clearHandlers
@@ -284,7 +284,7 @@ module Transport
         :advice => advice
       }
 
-      Logger.warn reason
+      log.warn reason
       doEnd 'error'
     end
 

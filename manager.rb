@@ -139,100 +139,100 @@ module Manager
     end
   end
 
-   def onDispatch room, packet, volatile, exceptions
-     if @rooms[room]
-       @rooms.each_index { | i |
-         id = @rooms[room][i]
-         
-         unless exceptions.index[id]
-           if @transports[id] and @transports[id].open
-             @transports[id].onDispatch packet, volatile
-           else if !volatile
-             onClientDispatch id, packet
-           end
-         end
-       }
-     end
-   end      
+  def onDispatch room, packet, volatile, exceptions
+    if @rooms[room]
+      @rooms.each_index { | i |
+        id = @rooms[room][i]
+        
+        unless exceptions.index[id]
+          if @transports[id] and @transports[id].open
+            @transports[id].onDispatch packet, volatile
+          else if !volatile
+            onClientDispatch id, packet
+          end
+        end
+      }
+    end
+  end      
 
-   def onJoin id, name
-     @roomClients[id] = {} if @roomClients[id].nil?
-     @rooms[name] = [] if @rooms[name].nil?
+  def onJoin id, name
+    @roomClients[id] = {} if @roomClients[id].nil?
+    @rooms[name] = [] if @rooms[name].nil?
 
-     @rooms[name].push(id)
-     @roomClients[id][name] = true
-   end
+    @rooms[name].push(id)
+    @roomClients[id][name] = true
+  end
 
-   def onLeave id, room
-     if @rooms[room]
-       @rooms[room].reject! { | x | x == id }
-       @roomClients[id].delete room
-     end
-   end
+  def onLeave id, room
+    if @rooms[room]
+      @rooms[room].reject! { | x | x == id }
+      @roomClients[id].delete room
+    end
+  end
 
-   def onClose id
-     if @open[id]
-       @open.delete id
-     end
+  def onClose id
+    if @open[id]
+      @open.delete id
+    end
 
-     @closed[id] = []
-     @closedA.push id
+    @closed[id] = []
+    @closedA.push id
 
-     @store.subscribe "dispatch:#{@id}", { | packet, volatile |
-       onClientDispatch(id, packet) if not volatile
-     }
-   end
+    @store.subscribe "dispatch:#{@id}", { | packet, volatile |
+      onClientDispatch(id, packet) if not volatile
+    }
+  end
 
    def onClientDispatch id, packet
-     if @closed[id]
-       @closed[id].push packet
-     end
-   end
+    if @closed[id]
+      @closed[id].push packet
+    end
+  end
 
-   def onClientMessage id, packet
-     if @namespaces[packet[:endpoint]]
-       @namespaces[packet[:endpoint].handlePacket id, packet
-     end
-   end
+  def onClientMessage id, packet
+    if @namespaces[packet[:endpoint]]
+      @namespaces[packet[:endpoint].handlePacket id, packet
+    end
+  end
 
-   def onClientDisconnect id, reason
-     onDisconnect id
+  def onClientDisconnect id, reason
+    onDisconnect id
 
-     @namespaces.each { | name, value |
-       value.handleDisconnect(id, reason) if @roomClients[id][name]
-     }
-   end
+    @namespaces.each { | name, value |
+      value.handleDisconnect(id, reason) if @roomClients[id][name]
+    }
+  end
 
-   def onDisconnect(id, local=nil)
-     @handshaken.delete id
+  def onDisconnect(id, local=nil)
+    @handshaken.delete id
 
-     @open.delete(id) if @open[id]
-     @connected.delete(id) if @connected[id]
+    @open.delete(id) if @open[id]
+    @connected.delete(id) if @connected[id]
 
-     if @transports[id]
-       @transports[id].discard
-       @transports.delete id
-     end
+    if @transports[id]
+      @transports[id].discard
+      @transports.delete id
+    end
 
-     if @closed[id]
-       @closed.delete id
-       @closedA.reject! { | x | x == id }
-     end
+    if @closed[id]
+      @closed.delete id
+      @closedA.reject! { | x | x == id }
+    end
 
-     if @roomClientsp[id]
-       @roomClients[id].each { | room, value |
-         @rooms.reject! { | x | x == id }
-       }
-     end
+    if @roomClientsp[id]
+      @roomClients[id].each { | room, value |
+        @rooms.reject! { | x | x == id }
+      }
+    end
 
-     @store.destroyClient id, @get('client store expiration')
+    @store.destroyClient id, @get('client store expiration')
 
-     @store.unsubscribe("dispatch:#{@id}")
+    @store.unsubscribe("dispatch:#{@id}")
 
-     if local
-       @store.unsubscribe("message:#{@id}")
-       @store.unsubscribe("disoconnect:#{@id}")
-     end
+    if local
+      @store.unsubscribe("message:#{@id}")
+      @store.unsubscribe("disoconnect:#{@id}")
+    end
   end
 
   def handleRequest req, res
@@ -253,7 +253,7 @@ module Manager
        res.writeHead 200
        res.end 'Welcomet to socket.io'
 
-       Logger.info 'unhandled socket.io url'
+       log.info 'unhandled socket.io url'
      end
 
      return
@@ -263,7 +263,7 @@ module Manager
      res.writeHead 500
      res.end 'Protocol version not supported.'
 
-     Logger.info 'client protocol version unsupported'
+     log.info 'client protocol version unsupported'
    else
      if data[:id]
        handleHTTPRequest data, req, res
@@ -279,7 +279,7 @@ module Manager
     if !data
       if @enabled('destroy upgrade')
         socket.end
-        Logger.debug 'destroying non-socket.io upgrade'
+        log.debug 'destroying non-socket.io upgrade'
       end
 
       return
@@ -311,7 +311,7 @@ module Manager
    end 
 
    if !get('transports').index(data.transport)
-     Logger.warn 'unknown transport: "' + data.transport + '"'
+     log.warn 'unknown transport: "' + data.transport + '"'
      req[:connection].end
      return
    end 
@@ -409,7 +409,7 @@ module Manager
       end 
 
       write 200, headers, cache[:content], mime[:encoding]
-      Logger.debug 'served static ' + data.path
+      log.debug 'served static ' + data.path
     end
 
     if get('browser client handler')
@@ -418,7 +418,7 @@ module Manager
       fs.readFile location, { |err, data|
         if (err) 
           write 500, null, 'Error serving static ' + data.path
-          Logger.warn "Can\'t cache " + data.path +', ' + err.message
+          log.warn "Can\'t cache " + data.path +', ' + err.message
           return
         end
 
@@ -452,7 +452,7 @@ module Manager
 
     def doError err
       writeErr 500, 'handshake error'
-      Logger.warn "handshake error #{err}"
+      log.warn "handshake error #{err}"
     end
 
     unless verifyOrigin req
@@ -487,10 +487,10 @@ module Manager
         onHandshake id, newData || handshakeData
         @store.publish 'handshake', id, newData || handshakeData
  
-        Logger.info 'handshake authorized', id
+        log.info 'handshake authorized', id
       else 
         writeErr 403, 'handshake unauthorized'
-        Logger.info 'handshake unauthorized'
+        log.info 'handshake unauthorized'
       end 
     }
   end
@@ -551,11 +551,11 @@ module Manager
       #TODO
       get('authorization')
       get('authorization').call(this, data, function (err, authorized) {
-        self.log.debug('client ' + authorized ? 'authorized' : 'unauthorized')
+        log.debug('client ' + authorized ? 'authorized' : 'unauthorized')
         fn(err, authorized)
       })
     else
-      Logger.debug 'client authorized'
+      log.debug 'client authorized'
       fn nil, true
     end
     self
