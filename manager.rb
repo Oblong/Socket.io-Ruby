@@ -1,33 +1,59 @@
-$constants = {
-  :transports => [ 'websocket' , 'htmlfile' , 'xhr-polling' , 'jsonp-polling' ]
-}
 
-module Manager
-  @settings = {
-      :origins => '*:*'
-    , :log => true
-    , :store => MemoryStore.new
-    , :logger => Logger.new
-    , :heartbeats => true
-    , :resource => '/socket.io'
-    , :transports => $constants[:transports]
-    , :authorization => false
-    , 'log level' => 3
-    , 'close timeout' => 25
-    , 'heartbeat timeout' => 15
-    , 'heartbeat interval' => 20
-    , 'polling duration' => 20
-    , 'flash policy server' => true
-    , 'flash policy port' => 843
-    , 'destroy upgrade' => true
-    , 'browser client' => true
-    , 'browser client minification' => false
-    , 'browser client etag' => false
-    , 'browser client handler' => false
-    , 'client store expiration' => 15
-  }
+class Manager
+  def initialize(server)
+    @server = server
+    @namespaces = {}
+    #TODO
+    @sockets = of('')
 
-  def self.handshakeData; end
+    @settings = {
+        :origins => '*:*'
+      , :log => true
+      , :store => MemoryStore.new
+      , :logger => Logger.new
+      , :heartbeats => true
+      , :resource => '/socket.io'
+      , :transports => [ 'websocket' , 'htmlfile' , 'xhr-polling' , 'jsonp-polling' ]
+      , :authorization => false
+      , 'log level' => 3
+      , 'close timeout' => 25
+      , 'heartbeat timeout' => 15
+      , 'heartbeat interval' => 20
+      , 'polling duration' => 20
+      , 'flash policy server' => true
+      , 'flash policy port' => 843
+      , 'destroy upgrade' => true
+      , 'browser client' => true
+      , 'browser client minification' => false
+      , 'browser client etag' => false
+      , 'browser client handler' => false
+      , 'client store expiration' => 15
+    }
+
+    initStore
+
+    @oldListeners = server.listeners('request')
+    server.removeAllListeners 'request'
+
+    server.on 'request', { |req, res|
+      handleRequest(req, res)
+    }
+
+    server.on 'upgrade', { |req, socket, head|
+      handleUpgrade(req, socket, head)
+    }
+
+    transports.each { | i | 
+      i.init self if i.init
+    }
+
+    log.info('socket.io started')
+    
+    #rb: only
+    doStatic
+  end
+
+  def handshakeData; end
 
   def store
     get 'store'
@@ -73,12 +99,12 @@ module Manager
     !@settings[key]
   end
 
-  def self.transports data 
+  def transports data 
     transp = @settings[:transports]
     ret = []
 
     transp.each { |transport|
-      if transport)
+      if transport
         if (!transport.checkClient || transport.checkClient(data)) 
           ret.push transport
         end
@@ -92,7 +118,7 @@ module Manager
     # TODO
     if env.class == Method
       env.call(self)
-    elsif env == process[:env].NODE_ENV
+    elsif env == process[:env].NODEENV
       fn.call(self)
     end
 
@@ -339,7 +365,7 @@ module Manager
        socket = which.socket data[:id], true
 
        # echo back connect packet and fire connection event
-       which.handlePacket data[:id], { type: 'connect' }
+       which.handlePacket(data[:id], { type: 'connect' })
      }
 
      @store.subscribe 'message:' + data[:id], { |packet| 
@@ -358,35 +384,38 @@ module Manager
    end
   end
 
-  Manager[:static] = {
-   :cache => {},
-   :paths => {
-     '/static/flashsocket/WebSocketMain.swf' => client[:dist] + '/WebSocketMain.swf',
-     '/static/flashsocket/WebSocketMainInsecure.swf' => client[:dist] + '/WebSocketMainInsecure.swf',
-     '/socket.io.js' => client[:dist] + '/socket.io.js',
-     '/socket.io.js.min' => client[:dist]+ '/socket.io.min.js'
-   }, 
-   :mime => {
-     :js => {
-        'contentType' => 'application/javascript',
-        'encoding' => 'utf8'
-     },
-     :swf => {
-         'contentType' => 'application/x-shockwave-flash',
-         'encoding' => 'binary'
-     }
-   }
-  }
+  attr_accessor static
+  def doStatic
+    @static = {
+      :cache => {},
+      # TODO
+      :paths => {
+        '/static/flashsocket/WebSocketMain.swf' => client[:dist] + '/WebSocketMain.swf',
+        '/static/flashsocket/WebSocketMainInsecure.swf' => client[:dist] + '/WebSocketMainInsecure.swf',
+        '/socket.io.js' => client[:dist] + '/socket.io.js',
+        '/socket.io.js.min' => client[:dist]+ '/socket.io.min.js'
+      }, 
+      :mime => {
+        :js => {
+          'contentType' => 'application/javascript',
+          'encoding' => 'utf8'
+        },
+        :swf => {
+           'contentType' => 'application/x-shockwave-flash',
+           'encoding' => 'binary'
+        }
+      }
+    }
+  end
 
   def handleClientRequest req, res, data
-    # TODO
-    static = Manager.static
+    _static = @static
 
     extension = data[:path].split('.').pop
     file = data[:path] + (@enabled('browser client minification')
        && extension == 'js' ? '.min' : '')
-    location = static.paths[file]
-    cache = static.cache[file]
+    location = _static[:paths][:file]
+    cache = _static[:cache][:file]
 
     def write status, headers, content, encoding
       res.writeHead status, headers || nil
@@ -398,7 +427,7 @@ module Manager
         return write 304
       end
       
-      mime = static[mime][extension]
+      mime = _static[:mime][extension]
       headers = {
         'Content-Type' => mime[:contentType],
         'Content-Length' => cache.length
@@ -422,7 +451,7 @@ module Manager
           return
         end
 
-        cache = Manager.static.cache[file] = {
+        cache = @static[:cache][file] = {
           :content => data
           :length => data.length,
           :Etag => client[:version]
@@ -443,10 +472,10 @@ module Manager
     def writeErr status, message
       if (data.query.jsonp) 
         res.writeHead(200, { 'Content-Type' => 'application/javascript' })
-        res.end('io.j[' + data[:query][:jsonp] + '](new Error("' + message + '"));')
+        res.doEnd('io.j[' + data[:query][:jsonp] + '](new Error("' + message + '"));')
       else
-        res.writeHead(status)
-        res.end(message)
+        res.writeHead status
+        res.doEnd message
       end
     end
 
@@ -464,7 +493,7 @@ module Manager
 
     authorize handshakeData, { |err, authorized, newData|
       if err 
-        return error(err
+        return error err
       end
  
       if authorized
@@ -477,7 +506,7 @@ module Manager
  
         if data[:query][:jsonp]
           hs = 'io.j[' + data[:query][:jsonp] + '](' + JSON.stringify(hs) + ');'
-          res.writeHead 200, { 'Content-Type' => 'application/javascript' })
+          res.writeHead(200, { 'Content-Type' => 'application/javascript' })
         else 
           res.writeHead 200
         end 
@@ -524,7 +553,6 @@ module Manager
   def verifyOrigin request
     origin = request[:header][:origin]
     origins = get('origins')
-    # , origins = @get('origins')
     
     origin = '*' if origin.nil? 
  
@@ -547,13 +575,12 @@ module Manager
   end
  
   def authorize data, fn
-    if get('authorize')
-      #TODO
-      get('authorization')
-      get('authorization').call(this, data, function (err, authorized) {
+    if get('authorization')
+      
+      get('authorization')(data, { |err, authorized |
         log.debug('client ' + authorized ? 'authorized' : 'unauthorized')
         fn(err, authorized)
-      })
+      }
     else
       log.debug 'client authorized'
       fn nil, true
@@ -571,10 +598,10 @@ module Manager
   #TODO
   regexp = /^\/([^\/]+)\/?([^\/]+)?\/?([^\/]+)?\/?$/
   def checkRequeest req
-   resource = get('resource')
+    resource = get('resource')
  
-   # TODO
-   if (req.url.substr(0, resource.length) == resource) 
+    # TODO
+    if (req.url.substr(0, resource.length) == resource) 
       uri = url.parse(req.url.substr(resource.length), true)
       path = uri.pathname || ''
       pieces = path.match(regexp)
@@ -591,8 +618,7 @@ module Manager
         data[:protocol] = pieces[1].to_i
         data[:transport] = pieces[2]
         data[:id] = pieces[3]
-        # TODO
-        # data[:static] = !!Manager.static.paths[path]
+        data[:static] = !!@static[:paths][path]
       end
  
       return data

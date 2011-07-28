@@ -1,10 +1,15 @@
 class Logger
+  attr_accessor :level
+
   def initialize(*args); end
 
   def write msg
     $stderr.puts msg
   end
 
+  def error(*msg)
+    write "Error: #{msg.join(' ')}"
+  end
   def warn(*msg)
     write "Warn: #{msg.join(' ')}"
   end
