@@ -1,5 +1,6 @@
 
 class SocketNamespace
+# TODO
 #SocketNamespace.prototype.__proto__ = EventEmitter.prototype;
 #SocketNamespace.prototype.$emit = EventEmitter.prototype.emit;
   def initialize mgr, name
@@ -15,10 +16,10 @@ class SocketNamespace
 
     return [] unless @manager[:rooms][room]
 
-    
-    return this.manager.rooms[room].map(function (id) {
-      return this.socket(id);
-    }, this);
+    # TODO
+    @manager.rooms[room].map { |id| {
+      return @socket(@id)
+    }
   end
 
   def log; @manager.log; end
@@ -68,10 +69,10 @@ class SocketNamespace
   end
 
   def send data
-    packet {
+    packet({
       :type => @flags[:json] ? 'json' : 'message',
       :data => data
-    }
+    })
   end
 
   def emit(*name)
@@ -79,11 +80,11 @@ class SocketNamespace
       return _emit name
     end
 
-    packet {
+    packet({
       :type => 'event',
       :name => name[0],
       :args => name[1..-1]
-    }
+    })
   end
 
   def socket sid, readable
@@ -103,11 +104,11 @@ class SocketNamespace
 
   def authorize data, fn
     if @auth
-      #this.auth.call(this, data, function (err, authorized) {
-      {
-        self.log.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + self.name);
+      #TODO
+      @auth(data, { | err, authorized |
+        Logger.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + @name)
         fn(err, authorized);
-      }
+      })
     else
       Logger.debug "client authorized for #{@name}"
       fn nil, true
@@ -121,19 +122,21 @@ class SocketNamespace
 
     def ack(*args)
       Logger.debug 'sending data ack packet'
-      socket.packet {
+
+      socket.packet({
         :type => 'ack',
         :args => args,
         :ackId => packet[:id]
-      }
+      })
     end
 
     def doError err
       Logger.warn 'handshake error ' + err + ' for ' + @name
-      socket.packet {
+
+      socket.packet({
         :type => 'error',
         :reason => err
-      }
+      })
     end
 
     def connect
@@ -141,7 +144,7 @@ class SocketNamespace
       @store.publish 'join', sessid, @name
 
       # packet echo
-      socket.packet { :type => 'connect' }
+      socket.packet({ :type => 'connect' })
 
       # emit connection event
       _emit 'connection', socket
@@ -171,8 +174,9 @@ class SocketNamespace
       end
 
     when 'ack'
+      # TODO
       if socket[:acks][packet[:ackId]]
-        #socket.acks[packet.ackId].apply(socket, packet.args);
+        socket[:acks][packet[:ackId]] socket, packet.args
       else
         Logger.info 'unknown ack packet'
       end 

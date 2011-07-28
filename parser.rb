@@ -39,8 +39,8 @@ module Parser
     data = array[5] || ''
 
     packet = {
-      'type' => @tk[:packet][array[1]],
-      'endpoint' => array[4] || ''
+      :type => @tk[:packet][array[1]],
+      :endpoint => array[4] || ''
     }
 
     # whether we need to acknowledge the packet

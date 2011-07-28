@@ -1,7 +1,7 @@
 module Transport
   class HTMLFile < Transport::HTTPTransport
-    def initialize(msg, data, req)
-      super(msg, data, req)
+    def initialize msg, data, req
+      super msg, data, req
       @name = 'htmlfile'
     end
 
@@ -26,12 +26,12 @@ module Transport
     end
 
     def write data
-      data = '<script>_(' + JSON.stringify(data) + ');</script>'
+      data = '<script>_(' + JSON.generate(data) + ');</script>'
       
       @response.write data
-      @drained = true;
+      @drained = true
 
-      Logger.debug("#{@name} writing", data)
+      Logger.debug "#{@name} writing", data
     end
   end
 end

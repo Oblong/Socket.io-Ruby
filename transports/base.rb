@@ -3,17 +3,18 @@ module Transport
     attr_accessor :open, :discarded, :id
     attr_accessor :name, :postEncoded
 
-    def packet(obj)
-      write parser.encodePacket(obj)
+    def packet obj
+      write parser.encodePacket obj
     end
 
     def handleRequest req
-      # this.log.debug('setting request', req.method, req.url);
-      # this.req = req;
+      Logger.debug 'setting request', req.method, req.url
+      @req = req
+
       if req.method == 'GET'
-        #this.socket = req.socket;
-        #this.open = true;
-        #this.drained = true;
+        @socket = req.socket
+        @open = true
+        @drained = true
         setHeartbeatInterval
         setHandlers
         onSocketConnect
@@ -24,26 +25,26 @@ module Transport
       # we need to do this in a pub/sub way since the client can POST the message
       # over a different socket (ie: different Transport instance)
       @store.onMany {
-        'heartbeat-clear:' + this.id => { | x | onHeartbeatClear },
-        'disconnect-force:' + this.id => { | x | onForcedDisconnect },
-        'dispatch:' + this.id => onDispatch
+        'heartbeat-clear:' + @id => { | x | onHeartbeatClear },
+        'disconnect-force:' + @id => { | x | onForcedDisconnect },
+        'dispatch:' + @id => onDispatch
       }
 
       @socket.onMany {
 =begin
-  this.bound = {
-      end: this.onSocketEnd.bind(this)
-    , close: this.onSocketClose.bind(this)
-    , error: this.onSocketError.bind(this)
-    , drain: this.onSocketDrain.bind(this)
+  @bound = {
+      end: @onSocketEnd.bind(this)
+    , close: @onSocketClose.bind(this)
+    , error: @onSocketError.bind(this)
+    , drain: @onSocketDrain.bind(this)
   };
 
-  this.socket.on('end', this.bound.end);
-  this.socket.on('close', this.bound.close);
-  this.socket.on('error', this.bound.error);
-  this.socket.on('drain', this.bound.drain);
+  @socket.on('end', @bound.end);
+  @socket.on('close', @bound.close);
+  @socket.on('error', @bound.error);
+  @socket.on('drain', @bound.drain);
 
-  this.handlersSet = true;
+  @handlersSet = true;
 };
 =end
     def clearHandlers
@@ -55,10 +56,10 @@ module Transport
         ['end', 'close', 'error'].each { | which |
           @socket.removeListener which, ### TBD
 =begin
-    this.socket.removeListener('end', this.bound.end);
-    this.socket.removeListener('close', this.bound.close);
-    this.socket.removeListener('error', this.bound.error);
-    this.socket.removeListener('drain', this.bound.drain);
+    @socket.removeListener('end', @bound.end);
+    @socket.removeListener('close', @bound.close);
+    @socket.removeListener('error', @bound.error);
+    @socket.removeListener('drain', @bound.drain);
   }
 };
 =end
@@ -75,9 +76,9 @@ module Transport
       Logger.info('socket error') 
     end
 
-    #Transport.prototype.onSocketDrain = function () {
-    #  this.drained = true;
-    #};
+    def onSocketDrain
+      @drained = true
+    end
 
     def onHeartbeatClear
       clearHeartbeatTimeout
@@ -86,9 +87,12 @@ module Transport
 
     def onForcedDisconnect
       unless @disconnected
-        Logger.info('transport end by forced client disconnection');
+        Logger.info 'transport end by forced client disconnection'
+
         if @open
-          packet({ :type => 'disconnect' })
+          packet { 
+            :type => 'disconnect' 
+          }
         end
 
         doEnd 'booted'
@@ -110,6 +114,7 @@ module Transport
           Logger.debug('fired close timeout for client')
           @closeTimeout = nil
           doEnd 'close timeout'
+        end
       end
       Logger.debug('set close timeout for client')
     end
@@ -119,7 +124,7 @@ module Transport
         clearTimeout @closeTimeout
         @closeTimeout = nil
 
-        Logger.debug('cleared close timeout for client')
+        Logger.debug 'cleared close timeout for client'
       end
     end
 
@@ -127,7 +132,7 @@ module Transport
       if @heartbeatTimeout.nil?
 
         @heartbeatTimeout = EventMachine::Timer.new(Manager.settings['heartbeat timeout'] * 1000) do | x |
-          Logger.debug('fired heartbeat timeout for client')
+          Logger.debug 'fired heartbeat timeout for client'
           @heartbeatTimeout = nil
           doEnd 'heartbeat timeout'
         end
@@ -139,7 +144,7 @@ module Transport
       unless @heartbeatTimeout.nil?
         clearTimeout @heartbeatTimeout
         @heartbeatTimeout = nil
-        Logger.debug('cleared heartbeat timeout for client')
+        Logger.debug 'cleared heartbeat timeout for client'
       end
     end
 
@@ -161,8 +166,12 @@ module Transport
 
     def heartbeat
       if @open
-        Logger.debug('emitting heartbeat for client')
-        packet({ :type => :heartbeat })
+        Logger.debug 'emitting heartbeat for client'
+
+        packet { 
+          :type => :heartbeat 
+        }
+
         setHeartbeatTimeout
       end
     end
@@ -170,7 +179,7 @@ module Transport
     def onMessage packet
       current = @manager.transports[@id]
 
-      if 'heartbeat' == packet.type
+      if 'heartbeat' == packet[:type]
         Logger.debug 'got heartbeat packet'
 
         if (current && current.open)
@@ -179,10 +188,10 @@ module Transport
           @store.publish("heartbeat-clear:#{@id}")
         end
       else 
-        if ('disconnect' == packet.type && packet.endpoint == '')
+        if ('disconnect' == packet[:type] && packet[:endpoint] == '')
           Logger.debug 'got disconnection packet'
 
-          if (current) 
+          if current
             current.onForcedDisconnect
           else
             @store.publish "disconnect-force:#{@id}"
@@ -191,13 +200,13 @@ module Transport
           return
         end
 
-        if (packet.id && packet.ack != 'data') 
+        if (packet[:id] && packet[:ack] != 'data') 
           Logger.debug 'acknowledging packet automatically'
 
           ack = Parser.encodePacket {
-              :type => 'ack'
-            , :ackId => packet.id
-            , :endpoint => packet.endpoint || ''
+            :type => 'ack',
+            :ackId => packet[:id],
+            :endpoint => packet[:endpoint] || ''
           }
 
           if (current && current.open) 
@@ -209,7 +218,7 @@ module Transport
         end
 
         # handle packet locally or publish it
-        if (current)
+        if current
           @manager.onClientMessage @id, packet
         else
           @store.publish "message:#{@id}", packet
@@ -221,12 +230,14 @@ module Transport
       unless @heartbeatInterval.nil?
         clearTimeout @heartbeatInterval
         @heartbeatInterval = nil
-        Logger.debug('cleared heartbeat interval for client', this.id)
+        Logger.debug 'cleared heartbeat interval for client', @id
       end
     end
 
     def disconnect reason
-      packet({ :type => 'disconnect'})
+      packet { 
+        :type => 'disconnect'
+      }
       doEnd reason
     end
 
@@ -237,14 +248,13 @@ module Transport
       end
     end
 
-
     def onClose
       if open
         setCloseTimeout
         clearHandlers
         @open = false
-        #manager.onClose(@id)
-        @store.publish(close, id)
+        @manager.onClose @id
+        @store.publish 'close', @id
       end
     end
 
@@ -268,23 +278,22 @@ module Transport
     end
 
     def doError(reason, advice)
-      packet({
+      packet {
         :type => 'error',
         :reason => reason,
         :advice => advice
-      })
+      }
 
-      Logger.warn(reason)
-      doEnd('error')
+      Logger.warn reason
+      doEnd 'error'
     end
 
     def packet obj
-      write Parser.encodePacket(obj)
+      write Parser.encodePacket obj
     end
 
     def writeVolatile msg
       # don't think this is needed
     end
-
   end
 end

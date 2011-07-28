@@ -1,6 +1,6 @@
 class Socket
 
-  def initialize (manager, id, nsp, readable) 
+  def initialize manager, id, nsp, readable
     @manager = manager
     @id = id
     @namespace = nsp
@@ -43,7 +43,7 @@ class Socket
     name = (nsp + '/') + name
 
     @manager.onJoin @id, name
-    @manager.store.publish 'join', this.id, name
+    @manager.store.publish 'join', @id, name
 
     if fn
       Logger.warn 'Client#join callback is deprecated'
@@ -56,7 +56,7 @@ class Socket
     name = (nsp + '/') + name
 
     @manager.onLeave @id, name
-    @manager.store.publish 'leave', this.id, name
+    @manager.store.publish 'leave', @id, name
 
     if fn
       Logger.warn 'Client#join callback is deprecated'
@@ -67,7 +67,7 @@ class Socket
   def packet _packet
     if @flags[:broadcast]
       Logger.debug 'broadcasting packet'
-      #this.namespace.in(this.flags.room).except(this.id).packet(packet);
+      #this.namespace.in(this.flags.room).except(@id).packet(packet);
     else
       packet[:endpoint] = @flags[:endpoint]
       packet = Parser.encodePacket packet
@@ -136,10 +136,9 @@ class Socket
   ## TODO
   Socket.prototype._emit = EventEmitter.prototype.emit;
 
-  def emit (*ev)
+  def emit(*ev)
     if ev[0] == 'newListener'
-      return _emit.call(*ev)
-      #return this.$emit.apply(this, arguments);
+      return _emit ev
     end
 
     args = ev[1..-1]
@@ -150,8 +149,7 @@ class Socket
       :name => ev
     }
 
-    ## TODO
-    if ('function' == typeof lastArg) 
+    if Method == lastArg.class
       @ackPackets += 1
       _packet[:id] = @ackPackets
       _packet[:ack] = lastArg.length ? 'data' : true
@@ -159,7 +157,7 @@ class Socket
       args = args[0..-2]
     end 
 
-    _packet[:args] = args;
+    _packet[:args] = args
 
     packet _packet
   end

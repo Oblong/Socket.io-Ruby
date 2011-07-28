@@ -9,13 +9,13 @@ module Transports
           log: function(msg){
             manager.log.info(msg.toLowerCase());
           }
-        }, manager.get('origins'));
+        }, manager.get('origins'))
 
         server.on('close', { | x | server = null })
 
         server.listen(manager.get('flash policy port'), manager.server);
 
-        manager.flashPolicyServer = server;
+        @manager.flashPolicyServer = server
       end
 
       # listen for origin changes, so we can update the server
@@ -23,17 +23,17 @@ module Transports
         if (!server) return;
 
         # update the origins and compile a new response buffer
-        server.origins = Array.isArray(value) ? value : [value];
+        server.origins = (value.class == Array) ? value : [value]
         server.compile();
       }
 
       # destory the server and create a new server
       manager.on 'set:flash policy port' { |value, key|
-        var transports = manager.get('transports');
+        transports = @manager.get 'transports'
 
         if (server && server.port !== value && ~transports.indexOf('flashsocket')) {
           # destroy the server and rebuild it on a new port
-          server.close()
+          server.close
           create
         }
       }
