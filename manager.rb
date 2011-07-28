@@ -29,6 +29,17 @@ module Manager
 
   def self.handshakeData; end
 
+  def store
+    get 'store'
+  end
+
+  def log
+    return nil if disabled('log')
+    logger = get 'logger'
+    logger.level = get 'log level'
+    logger
+  end
+
   def get key
     @settings[key]
   end
@@ -228,9 +239,8 @@ module Manager
    data = checkRequest req
 
    unless data
-     # TODO
      @oldListeneres.each { | which |
-       which.call(@server, req, res)
+       which req, res
      }
 
      return
@@ -264,25 +274,25 @@ module Manager
   end
 
   def handleUpgrade req, socket, head
-   data = checkRequest req
+    data = checkRequest req
 
-   if !data
-     if @enabled('destroy upgrade')
-       socket.end
-       Logger.debug 'destroying non-socket.io upgrade'
-     end
+    if !data
+      if @enabled('destroy upgrade')
+        socket.end
+        Logger.debug 'destroying non-socket.io upgrade'
+      end
 
-     return
-   end
+      return
+    end
 
-   req[:head] = head
+    req[:head] = head
 
-   handleClient data, req
+    handleClient data, req
   end
 
   def handleHTTPRequest data, req, ret
-   req[res] = res
-   @handleClient data, req
+    req[res] = res
+    handleClient data, req
   end
 
   def handleClient data, req
@@ -300,9 +310,9 @@ module Manager
      return
    end 
 
-   if !get('transports').index(data.transport))
+   if !get('transports').index(data.transport)
      Logger.warn 'unknown transport: "' + data.transport + '"'
-     req.connection.end
+     req[:connection].end
      return
    end 
 
@@ -368,8 +378,6 @@ module Manager
    }
   }
 
-
-
   def handleClientRequest req, res, data
     # TODO
     static = Manager.static
@@ -397,7 +405,7 @@ module Manager
       }
 
       if @enabled('browser client etag') && cache[:Etag]
-        headersp[:Etag] = cache[:Etag]
+        headers[:Etag] = cache[:Etag]
       end 
 
       write 200, headers, cache[:content], mime[:encoding]
@@ -405,7 +413,7 @@ module Manager
     end
 
     if get('browser client handler')
-      #@get('browser client handler').call(this, req, res)
+      get('browser client handler')(req, res)
     else if cache.nil?
       fs.readFile location, { |err, data|
         if (err) 
@@ -479,10 +487,10 @@ module Manager
         onHandshake id, newData || handshakeData
         @store.publish 'handshake', id, newData || handshakeData
  
-        self.log.info('handshake authorized', id)
+        Logger.info 'handshake authorized', id
       else 
         writeErr 403, 'handshake unauthorized'
-        self.log.info('handshake unauthorized')
+        Logger.info 'handshake unauthorized'
       end 
     }
   end
