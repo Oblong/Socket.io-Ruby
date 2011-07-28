@@ -12,11 +12,14 @@ module Transport
 
     def doWrite data
       super(data)
-=begin
-  var data = data === undefined
-      ? '' : this.head + JSON.stringify(data) + this.foot;
-=end
-      data = JSON.encode(data) unless data.kind_of? String
+
+      if data.nil?
+        data = ''
+      else
+        data = @head + JSON.generate(data) + @foot
+      end
+
+      data = JSON.generate(data) unless data.kind_of? String
 
       @socket.emit data
       Logger.debug @name + ' writing', data

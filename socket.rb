@@ -67,6 +67,7 @@ class Socket
   def packet _packet
     if @flags[:broadcast]
       Logger.debug 'broadcasting packet'
+      # TODO
       #this.namespace.in(this.flags.room).except(@id).packet(packet);
     else
       packet[:endpoint] = @flags[:endpoint]

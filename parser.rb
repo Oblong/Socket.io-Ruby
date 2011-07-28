@@ -66,7 +66,7 @@ module Parser
 
     when 'event'
       begin
-        var opts = JSON.parse(data)
+        opts = JSON.parse(data)
         packet[:name] = opts.name
         packet[:args] = opts.args
       rescue; end
@@ -102,11 +102,12 @@ end
 
 module Emitter
   def self.handshake
+    # TODO
     [
       UUID.generate,
       Params.settings['heartbeat timeout'] || '',
       Params.settings['close timeout'] || '',
       'xhr-polling'#     , self.transports(data).join(',')
-    ].join(':');
+    ].join(':')
   end
 end

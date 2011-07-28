@@ -34,7 +34,6 @@ module Manager
   end
 
   def emitKey(key)
-    # FIRE
     emit("set:#{key}", @settings[key], key)
   end
 
@@ -68,9 +67,9 @@ module Manager
     ret = []
 
     transp.each { |transport|
-      if (transport) 
+      if transport)
         if (!transport.checkClient || transport.checkClient(data)) 
-          ret.push(transport)
+          ret.push transport
         end
       end
     }
@@ -80,7 +79,7 @@ module Manager
 
   def configure env, fn
     # TODO
-    if env.kind_of? Method
+    if env.class == Method
       env.call(self)
     elsif env == process[:env].NODE_ENV
       fn.call(self)
@@ -186,7 +185,7 @@ module Manager
    end
 
    def onClientDisconnect id, reason
-     @onDisconnect id
+     onDisconnect id
 
      @namespaces.each { | name, value |
        value.handleDisconnect(id, reason) if @roomClients[id][name]
@@ -290,40 +289,38 @@ module Manager
    socket = req[:socket]
    store = @store
 
-   unless data[:query][:disconnect].nil?
+   #TODO
+   if data.query.respond_to? :disconnect)
+     if @transports[data[:id]] && @transports[data[:id]].open
+       @transports[data[:id]].onForcedDisconnect
+     else
+       @store.publish "disconnect-force:#{data[:id]}"
+     end 
 
-=begin
+     return
+   end 
 
-  if (undefined != data.query.disconnect) {
-   if (this.transports[data[:id]] && this.transports[data[:id]].open) {
-     this.transports[data[:id]].onForcedDisconnect()
-   } else {
-     this.store.publish('disconnect-force:' + data[:id])
-   }
-   return
-  }
+   if !get('transports').index(data.transport))
+     Logger.warn 'unknown transport: "' + data.transport + '"'
+     req.connection.end
+     return
+   end 
 
-  if (!~this.get('transports').indexOf(data.transport)) {
-   this.log.warn('unknown transport: "' + data.transport + '"')
-   req.connection.end()
-   return
-  }
-=end
-  transport = @transports[data[:transport]].new data, req
+   transport = @transports[data[:transport]].new data, req
 
-  if @handshaken[data[:id]]
-   if transport.open
-     if @closed[data[:id]] && @closed[data[:id]].length
-       transport.payload(@closed[data[:id]])
-       @closed[data[:id]] = []
+   if @handshaken[data[:id]]
+     if transport.open
+       if @closed[data[:id]] && @closed[data[:id]].length
+         transport.payload(@closed[data[:id]])
+         @closed[data[:id]] = []
+       end
+
+       onOpen(data[:id])
+       @store.publish('open', data[:id])
+       @transports[data[:id]] = transport
      end
 
-     onOpen(data[:id])
-     @store.publish('open', data[:id])
-     @transports[data[:id]] = transport
-   end
-
-   if !this.connected[data[:id]]
+   if !@connected[data[:id]]
      onConnect data[:id]
      @store.publish 'connect', data[:id]
 
@@ -335,11 +332,11 @@ module Manager
        which.handlePacket data[:id], { type: 'connect' }
      }
 
-     @store.subscribe 'message:' + data[:id], { |packet| {
+     @store.subscribe 'message:' + data[:id], { |packet| 
        onClientMessage data[:id], packet
      }
 
-     @store.subscribe 'disconnect:' + data[:id], { |reason| {
+     @store.subscribe 'disconnect:' + data[:id], { |reason| 
        onClientDisconnect data[:id], reason
      }
    else
@@ -408,7 +405,7 @@ module Manager
     end
 
     if get('browser client handler')
-      #this.get('browser client handler').call(this, req, res)
+      #@get('browser client handler').call(this, req, res)
     else if cache.nil?
       fs.readFile location, { |err, data|
         if (err) 
@@ -519,7 +516,7 @@ module Manager
   def verifyOrigin request
     origin = request[:header][:origin]
     origins = get('origins')
-    # , origins = this.get('origins')
+    # , origins = @get('origins')
     
     origin = '*' if origin.nil? 
  
@@ -543,8 +540,9 @@ module Manager
  
   def authorize data, fn
     if get('authorize')
+      #TODO
       get('authorization')
-      this.get('authorization').call(this, data, function (err, authorized) {
+      get('authorization').call(this, data, function (err, authorized) {
         self.log.debug('client ' + authorized ? 'authorized' : 'unauthorized')
         fn(err, authorized)
       })

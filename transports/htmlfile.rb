@@ -5,7 +5,7 @@ module Transport
       @name = 'htmlfile'
     end
 
-    def handleRequest &req
+    def handleRequest req
       super(req)
 
       if req.method == 'GET'

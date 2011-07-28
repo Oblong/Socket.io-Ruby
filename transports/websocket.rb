@@ -11,8 +11,8 @@ module Transports
         onMessage Parser.decodePacket(packet)
       }
 
-      @parser.on :error { | x | end }
-      @parser.on :close { | x | end }
+      @parser.on :error { | x | doEnd }
+      @parser.on :close { | x | doEnd }
     end
 
     def onSocketConnect
@@ -34,7 +34,7 @@ module Transports
       if @req[:headers]['sec-web-socket-key1']
         # If we don't have the nonce yet, wait for it (HAProxy compatibility).
         if ! (@req[:head] and @req[:head]length >= 8)
-          waitingForNonce = true;
+          waitingForNonce = true
         end
 
         headers = [
@@ -59,8 +59,9 @@ module Transports
       end
 
       begin
+        #TODO
         #@socket.write(headers.concat('', '').join('\r\n'));
-        #@socket.setTimeout(0);
+        @socket.setTimeout 0
         @socket.setNoDelay true
         @socket.setEncoding 'utf8'
       rescue(ex)
@@ -111,23 +112,22 @@ module Transports
         end
 
 
-=begin
+        #TODO
 
-    var length = Buffer.byteLength(data)
-      , buffer = new Buffer(2 + length);
+        #var length = Buffer.byteLength(data)
+        #, buffer = new Buffer(2 + length);
+        buffer.write('\u0000', 'binary');
+        buffer.write(data, 1, 'utf8');
+        buffer.write('\uffff', 1 + length, 'binary');
 
-=end
-      buffer.write('\u0000', 'binary');
-      buffer.write(data, 1, 'utf8');
-      buffer.write('\uffff', 1 + length, 'binary');
+        begin 
+          @drained = true if @socket.write buffer
+        rescue
+          doEnd
+        end 
 
-      begin 
-        @drained = true if @socket.write buffer
-      rescue
-        doEnd
-      end 
-
-      Logger.debug("#{@name} writing", data)
+        Logger.debug("#{@name} writing", data)
+      end
     end
 
     def flush
@@ -140,6 +140,7 @@ module Transports
       k1 = @req.headers['sec-websocket-key1']
       k2 = @req.headers['sec-websocket-key2']
      
+      #TODO
 =begin
 
   if (k1 && k2){

@@ -189,17 +189,15 @@ class SocketNamespace
       end
 
       socket._emit socket, params
-      break
 
     when 'disconnect'
       @manager.onLeave sessid, @name
       @store.publish 'leave', sessid, @name
 
       socket._emit 'disconnect', packet[:reason] || 'packet'
-      break;
 
-    when 'json':
-    when 'message':
+    when 'json'
+    when 'message'
       params = ['message', packet[:data]]
 
       if dataAck
