@@ -65,7 +65,9 @@ module Transport
 =end
     def onSocketConnect; end
 
-    def onSocketClose err; doEnd err; end
+    def onSocketClose err
+      doEnd err
+    end
 
     def onSocketError err
       if @open
@@ -73,7 +75,7 @@ module Transport
         onClose
       end
 
-      log.info('socket error') 
+      log.info 'socket error'
     end
 
     def onSocketDrain
@@ -110,11 +112,11 @@ module Transport
     def setCloseTimeout
       if @closeTimeout.nil?
 
-        @closeTimeout = EventMachine::Timer.new(Manager.settings['close timeout'] * 1000) do | x |
+        @closeTimeout = EventMachine::Timer.new(@manager.get('close timeout') * 1000) { | x |
           log.debug 'fired close timeout for client'
           @closeTimeout = nil
           doEnd 'close timeout'
-        end
+        }
       end
       log.debug 'set close timeout for client'
     end
@@ -131,12 +133,12 @@ module Transport
     def setHeartbeatTimeout
       if @heartbeatTimeout.nil?
 
-        @heartbeatTimeout = EventMachine::Timer.new(Manager.settings['heartbeat timeout'] * 1000) do | x |
+        @heartbeatTimeout = EventMachine::Timer.new(@manager.settings('heartbeat timeout') * 1000) { | x |
           log.debug 'fired heartbeat timeout for client'
           @heartbeatTimeout = nil
           doEnd 'heartbeat timeout'
-        end
-        log.debug('set heartbeat timeout for client')
+        }
+        log.debug 'set heartbeat timeout for client'
       end
     end
 
@@ -150,10 +152,10 @@ module Transport
 
     def setHeartbeatInterval
       if @heartbeatInterval.nil?
-        @heartbeatInterval = EventMachine::Timer.new(Manager.settings['heartbeat interval'] * 1000) do | x |
+        @heartbeatInterval = EventMachine::Timer.new(@manager.settings('heartbeat interval') * 1000) { | x |
           heartbeat
           @heartbeatInterval = nil
-        end
+        }
       end
       log.debug('set heartbeat interval for client')
     end
@@ -185,7 +187,7 @@ module Transport
         if (current && current.open)
           current.onHeartbeatClear
         else
-          @store.publish("heartbeat-clear:#{@id}")
+          @store.publish "heartbeat-clear:#{@id}"
         end
       else 
         if ('disconnect' == packet[:type] && packet[:endpoint] == '')
@@ -203,11 +205,11 @@ module Transport
         if (packet[:id] && packet[:ack] != 'data') 
           log.debug 'acknowledging packet automatically'
 
-          ack = Parser.encodePacket {
+          ack = Parser.encodePacket({
             :type => 'ack',
             :ackId => packet[:id],
             :endpoint => packet[:endpoint] || ''
-          }
+          })
 
           if (current && current.open) 
             current.onDispatch ack

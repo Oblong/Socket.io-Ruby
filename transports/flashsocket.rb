@@ -23,7 +23,7 @@ module Transports
       end
 
       # listen for origin changes, so we can update the server
-      manager.on('set:origins', { |value, key|
+      manager.on 'set:origins', { |value, key|
         if !server 
           return
         end

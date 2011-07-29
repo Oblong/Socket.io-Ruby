@@ -143,7 +143,9 @@ class SocketNamespace
       @store.publish 'join', sessid, @name
 
       # packet echo
-      socket.packet({ :type => 'connect' })
+      socket.packet({ 
+        :type => 'connect' 
+      })
 
       # emit connection event
       _emit 'connection', socket
