@@ -10,14 +10,14 @@ class Manager
     @sockets = of('')
 
     @settings = {
-        :origins => '*:*'
-      , :log => true
-      , :store => MemoryStore.new
-      , :logger => Logger.new
-      , :heartbeats => true
-      , :resource => '/socket.io'
-      , :transports => [ 'websocket' , 'htmlfile' , 'xhr-polling' , 'jsonp-polling' ]
-      , :authorization => false
+        'origins' => '*:*'
+      , 'log' => true
+      , 'store' => MemoryStore.new
+      , 'logger' => Logger.new
+      , 'heartbeats' => true
+      , 'resource' => '/socket.io'
+      , 'transports' => [ 'websocket' , 'htmlfile' , 'xhr-polling' , 'jsonp-polling' ]
+      , 'authorization' => false
       , 'log level' => 3
       , 'close timeout' => 25
       , 'heartbeat timeout' => 15
@@ -39,7 +39,7 @@ class Manager
     server.removeAllListeners 'request'
 
     server.on 'request', { |req, res|
-      handleRequest(req, res)
+      handleRequest req, res
     }
 
     server.on 'upgrade', { |req, socket, head|
@@ -63,8 +63,8 @@ class Manager
   end
 
   def log
-    return nil if disabled('log')
-    logger = get 'logger'
+    return nil if disabled :log
+    logger = get :logger
     logger.level = get 'log level'
     logger
   end

@@ -3,7 +3,7 @@
 class Store
 
   def initialize(file); end
-  def getsession(&block); end
+  def getsession(block); end
   def dump(); end
   def get(key); end
   def hashget(key, value); end
