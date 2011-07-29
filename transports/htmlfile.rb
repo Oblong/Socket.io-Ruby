@@ -1,12 +1,12 @@
 module Transport
   class HTMLFile < Transport::HTTPTransport
     def initialize msg, data, req
-      super msg, data, req
+      super
       @name = 'htmlfile'
     end
 
     def handleRequest req
-      super(req)
+      super
 
       if req.method == 'GET'
         req.response = {

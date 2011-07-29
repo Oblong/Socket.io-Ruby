@@ -90,9 +90,9 @@ module Transport
         log.info 'transport end by forced client disconnection'
 
         if @open
-          packet { 
+          packet({ 
             :type => 'disconnect' 
-          }
+          })
         end
 
         doEnd 'booted'
@@ -111,12 +111,12 @@ module Transport
       if @closeTimeout.nil?
 
         @closeTimeout = EventMachine::Timer.new(Manager.settings['close timeout'] * 1000) do | x |
-          log.debug('fired close timeout for client')
+          log.debug 'fired close timeout for client'
           @closeTimeout = nil
           doEnd 'close timeout'
         end
       end
-      log.debug('set close timeout for client')
+      log.debug 'set close timeout for client'
     end
 
     def clearCloseTimeout
@@ -168,9 +168,9 @@ module Transport
       if @open
         log.debug 'emitting heartbeat for client'
 
-        packet { 
+        packet({ 
           :type => :heartbeat 
-        }
+        })
 
         setHeartbeatTimeout
       end
@@ -235,9 +235,9 @@ module Transport
     end
 
     def disconnect reason
-      packet { 
+      packet({ 
         :type => 'disconnect'
-      }
+      })
       doEnd reason
     end
 
@@ -278,11 +278,11 @@ module Transport
     end
 
     def doError(reason, advice)
-      packet {
+      packet({
         :type => 'error',
         :reason => reason,
         :advice => advice
-      }
+      })
 
       log.warn reason
       doEnd 'error'

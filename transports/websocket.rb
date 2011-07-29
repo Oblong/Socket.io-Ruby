@@ -3,7 +3,7 @@ module Transports
   class WebSocket < Tranports::Transport
 
     def initialize(msg, data, req)
-      super(msg, data, req)
+      super
       @parser = Parser.new
 
       @parser.on :data { | packet |
@@ -21,8 +21,8 @@ module Transports
       @buffer = true
       @buffered = []
 
-      if @req[:headers][:upgrade] !== 'WebSocket'
-        log.warn("#{@name} connection invalid")
+      if @req[:headers][:upgrade] != 'WebSocket'
+        log.warn "#{@name} connection invalid"
         return doEnd
       end
 
@@ -59,12 +59,11 @@ module Transports
       end
 
       begin
-        #TODO
-        #@socket.write(headers.concat('', '').join('\r\n'));
+        @socket.write(headers.concat(['', '']).join("\r\n"))
         @socket.setTimeout 0
         @socket.setNoDelay true
         @socket.setEncoding 'utf8'
-      rescue(ex)
+      rescue
         return doEnd
       end
 
@@ -116,9 +115,9 @@ module Transports
 
         #var length = Buffer.byteLength(data)
         #, buffer = new Buffer(2 + length);
-        buffer.write('\u0000', 'binary');
+        buffer.write([0, 0], 'binary');
         buffer.write(data, 1, 'utf8');
-        buffer.write('\uffff', 1 + length, 'binary');
+        buffer.write([0xff, 0xff], 1 + length, 'binary');
 
         begin 
           @drained = true if @socket.write buffer
@@ -140,42 +139,42 @@ module Transports
       k1 = @req.headers['sec-websocket-key1']
       k2 = @req.headers['sec-websocket-key2']
      
+
+      if k1 && k2
       #TODO
 =begin
+    var md5 = crypto.createHash('md5')
 
-  if (k1 && k2){
-    var md5 = crypto.createHash('md5');
+    [k1, k2].forEach(function (k) 
+      n = parseInt(k.replace(/[^\d]/g, ''))
+        , spaces = k.replace(/[^ ]/g, '').length
 
-    [k1, k2].forEach(function (k) {
-      var n = parseInt(k.replace(/[^\d]/g, ''))
-        , spaces = k.replace(/[^ ]/g, '').length;
+      if (spaces === 0 || n % spaces !== 0)
+        log.warn('Invalid ' + name + ' key: "' + k + '".')
+        doEnd
+        return false
+      end
 
-      if (spaces === 0 || n % spaces !== 0){
-        self.log.warn('Invalid ' + self.name + ' key: "' + k + '".');
-        self.end();
-        return false;
-      }
-
-      n /= spaces;
+      n /= spaces
 
       md5.update(String.fromCharCode(
         n >> 24 & 0xFF,
         n >> 16 & 0xFF,
         n >> 8  & 0xFF,
-        n       & 0xFF));
-    });
+        n       & 0xFF))
+    })
 
-    md5.update(this.req.head.toString('binary'));
+    md5.update(@req.head.toString('binary'))
 
-    try {
-      @socket.write(md5.digest('binary'), 'binary');
-    } catch (e) {
-      this.end();
-    }
-  }
-
-  return true;
+    begin
+      @socket.write(md5.digest('binary'), 'binary')
+    rescue
+      doEnd
+    end
 =end
+      end
+
+      true
     end
 
     def payload messageList
@@ -200,42 +199,41 @@ module Transports
       end
 
       def add data
-        buffer += data
+        @buffer << data
         parse
       end
 
       def parse
-=begin
-  for (var i = @i, chr, l = @buffer.length; i < l; i++){
-    chr = @buffer[i];
+        (@i..@buffer.length).each { | i |
+          #rb 1.8 support
+          chr = @buffer[i..i+1].unpack('s')
 
-    if (@buffer.length == 2 && @buffer[1] == '\u0000') 
-      emit('close');
-      @buffer = '';
-      @i = 0;
-      return;
-    end
+          if @buffer.length == 2 && @buffer.unpack('s')[1] == 0
+            emit 'close'
+            @buffer = ''
+            @i = 0
+            return
+          end
+          
+          if i == 0
+            if chr != 0
+              doError 'Bad framing. Expected null byte as first frame'
+            else
+              next
+            end
+          end
 
-    if (i === 0)
-      if (chr != '\u0000')
-        doError('Bad framing. Expected null byte as first frame');
-      else
-        continue;
-      end
-    end
-
-    if (chr == '\ufffd')
-      emit('data', @buffer.substr(1, i - 1));
-      @buffer = @buffer.substr(i + 1);
-      @i = 0;
-      return parse
-    end 
-  }
-=end
+          if chr == 0xfffd
+            emit('data', @buffer[1..@i - 1])
+            @buffer = @buffer[@i + 1..-1]
+            @i = 0;
+            return parse
+          end
+        }
       end
 
       def doError reason
-        emit('error', reason)
+        emit 'error', reason
       end
     end
   end

@@ -1,5 +1,8 @@
 
 class Manager
+
+  attr_accessor :rooms
+
   def initialize(server)
     @server = server
     @namespaces = {}

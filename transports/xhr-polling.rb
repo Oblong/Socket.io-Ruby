@@ -1,12 +1,12 @@
 module Transport
   class XhrPolling < Transport::HttpPolling
     def initialize(msg, data, req)
-      super(msg, data, req)
+      super
       @name = 'xhr-polling'
     end
 
     def doWrite data
-      super(data)
+      super
 
       origin = @req.headers['origin']
 
@@ -17,7 +17,7 @@ module Transport
       }
 
 
-      if (origin) 
+      if origin)
         # https://developer.mozilla.org/En/HTTP_Access_Control
         headers['Access-Control-Allow-Origin'] = '*';
 

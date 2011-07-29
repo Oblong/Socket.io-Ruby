@@ -1,9 +1,8 @@
 module Transports
   class FlashSocket < Transports::WebSocket
     def initialize(mng, data, req)
-      super(mng, data, req)
+      super
       @name = 'flashsocket'
-   
     end
 
     def init manager

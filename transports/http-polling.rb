@@ -3,7 +3,7 @@
 module Tranport
   class HttpPolling < Transport::HTTPTranport
     def initialize(msg, data, req)
-      super(msg, data, req)
+      super
       @name = 'httppolling'
     end
 
@@ -28,7 +28,7 @@ module Tranport
     end
 
     def clearTimeouts
-      super()
+      super
       clearPollTimeout
     end
 
@@ -44,7 +44,7 @@ module Tranport
 
     def end
       clearPollTimeout
-      super() # return HTTPTransport.prototype.end.call(this);
+      super # return HTTPTransport.prototype.end.call(this);
     end
   end
 end

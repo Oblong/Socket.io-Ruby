@@ -14,11 +14,10 @@ class SocketNamespace
   def clients room
     room = @name + (room.nil? '/' + room : '')
 
-    return [] unless @manager[:rooms][room]
+    return [] unless @manager.rooms[room]
 
-    # TODO
-    @manager.rooms[room].map { |id| {
-      return @socket(@id)
+    @manager.rooms[room].map! { |id| 
+      @socket id
     }
   end
 
@@ -105,10 +104,10 @@ class SocketNamespace
   def authorize data, fn
     if @auth
       #TODO
-      @auth(data, { | err, authorized |
+      @auth data, { | err, authorized |
         log.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + @name)
-        fn(err, authorized);
-      })
+        fn(err, authorized)
+      }
     else
       log.debug "client authorized for #{@name}"
       fn nil, true
@@ -156,7 +155,7 @@ class SocketNamespace
         connect
       else
         manager = @manager
-        handshakeData = manager[:handshaken][sessid];
+        handshakeData = manager.handshaken[sessid]
 
         authorize handshakeData { |err, authorized, newData|
           if err 

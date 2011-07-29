@@ -1,8 +1,16 @@
+#TODO
+#, qs = require('querystring');
+
 module Transport
   class HTTPTransport < Transport::Transport
 
+    #rb
+    attr_accessor @postEncoded
     def initialize mng, data, req
-      super(mng, data, req)
+      super
+
+      #rb used by jsonp polling
+      @postEncoded = false
     end
 
     def handleRequest req
@@ -18,8 +26,7 @@ module Transport
 
         req.on 'end' { | x |
           #TODO
-          #self.onData(self.postEncoded ? qs.parse(buffer).d : buffer);
-          onData(buffer)
+          onData(@postEncoded ? qs.parse(buffer).d : buffer)
         }
 
         if origin
@@ -30,11 +37,11 @@ module Transport
           end
         end
 
-        res.writeHead(200, headers)
-        res.end('1')
+        res.writeHead 200, headers
+        res.doEnd '1'
       else
         @response = req.res
-        super req
+        super
       end
     end
 

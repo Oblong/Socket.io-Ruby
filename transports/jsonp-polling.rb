@@ -2,7 +2,11 @@ module Transport
   class JsonpPolling < Transport::HttpPolling
 
     def initialize(msg, data, req)
-      super(msg, data, req)
+      #rb make sure this stays at the top because
+      #   the postEncoded assignment here would 
+      #   otherwise be overridden
+      super
+
       @name = 'jsonppolling'
       @postEncoded = true
       @head = 'io.j[0]('
@@ -11,7 +15,7 @@ module Transport
     end
 
     def doWrite data
-      super(data)
+      super
 
       if data.nil?
         data = ''

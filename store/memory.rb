@@ -1,6 +1,6 @@
 class Memory < Store
   def initialize opts
-    super(opts)
+    super
   end
 
   def publish; end
@@ -10,7 +10,7 @@ end
 
 class Client < Store
   def initialize(*arguments)
-    super(arguments)
+    super
     @data = {}
   end
 
