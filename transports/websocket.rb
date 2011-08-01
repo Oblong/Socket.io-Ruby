@@ -6,13 +6,13 @@ module Transports
       super
       @parser = Parser.new
 
-      @parser.on :data { | packet |
+      @parser.on :data, lambda { | packet |
         log.debug packet
         onMessage Parser.decodePacket(packet)
       }
 
-      @parser.on :error { | x | doEnd }
-      @parser.on :close { | x | doEnd }
+      @parser.on :error, lambda { | x | doEnd }
+      @parser.on :close, lambda { | x | doEnd }
     end
 
     def onSocketConnect
@@ -33,7 +33,7 @@ module Transports
 
       if @req[:headers]['sec-web-socket-key1']
         # If we don't have the nonce yet, wait for it (HAProxy compatibility).
-        if ! (@req[:head] and @req[:head]length >= 8)
+        if ! (@req[:head] and @req[:head].length >= 8)
           waitingForNonce = true
         end
 
@@ -75,7 +75,7 @@ module Transports
 
       headBuffer = ''
 
-      @socket.on 'data', { | data | 
+      @socket.on 'data', lambda { | data | 
         if waitingForNonce
 
           headBuffer << data

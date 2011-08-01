@@ -20,11 +20,11 @@ module Transport
         origin = req.headers.origin
         headers = { 'Content-Length' => 1 }
 
-        req.on 'data' { | data |
+        req.on 'data', lambda { | data |
           buffer << data
         }
 
-        req.on 'end' { | x |
+        req.on 'end', lambda { | x |
           #TODO
           onData(@postEncoded ? qs.parse(buffer).d : buffer)
         }

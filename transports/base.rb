@@ -24,13 +24,13 @@ module Transport
     def setHandlers
       # we need to do this in a pub/sub way since the client can POST the message
       # over a different socket (ie: different Transport instance)
-      @store.onMany {
-        'heartbeat-clear:' + @id => { | x | onHeartbeatClear },
-        'disconnect-force:' + @id => { | x | onForcedDisconnect },
+      @store.onMany({
+        'heartbeat-clear:' + @id => lambda { | x | onHeartbeatClear },
+        'disconnect-force:' + @id => lambda { | x | onForcedDisconnect },
         'dispatch:' + @id => onDispatch
-      }
+      })
 
-      @socket.onMany {
+#      @socket.onMany {
 =begin
   @bound = {
       end: @onSocketEnd.bind(this)
@@ -54,7 +54,10 @@ module Transport
         }
 
         ['end', 'close', 'error'].each { | which |
-          @socket.removeListener which, ### TBD
+       #   @socket.removeListener which, ### TBD
+        }
+      end
+    end
 =begin
     @socket.removeListener('end', @bound.end);
     @socket.removeListener('close', @bound.close);

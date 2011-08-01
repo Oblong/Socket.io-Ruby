@@ -10,27 +10,27 @@ class Manager
     @sockets = of('')
 
     @settings = {
-        'origins' => '*:*'
-      , 'log' => true
-      , 'store' => MemoryStore.new
-      , 'logger' => Logger.new
-      , 'heartbeats' => true
-      , 'resource' => '/socket.io'
-      , 'transports' => [ 'websocket' , 'htmlfile' , 'xhr-polling' , 'jsonp-polling' ]
-      , 'authorization' => false
-      , 'log level' => 3
-      , 'close timeout' => 25
-      , 'heartbeat timeout' => 15
-      , 'heartbeat interval' => 20
-      , 'polling duration' => 20
-      , 'flash policy server' => true
-      , 'flash policy port' => 843
-      , 'destroy upgrade' => true
-      , 'browser client' => true
-      , 'browser client minification' => false
-      , 'browser client etag' => false
-      , 'browser client handler' => false
-      , 'client store expiration' => 15
+      'origins' => '*:*',
+      'log' => true,
+      'store' => MemoryStore.new,
+      'logger' => Logger.new,
+      'heartbeats' => true,
+      'resource' => '/socket.io',
+      'transports' => [ 'websocket' 'htmlfile' 'xhr-polling' 'jsonp-polling' ],
+      'authorization' => false,
+      'log level' => 3,
+      'close timeout' => 25,
+      'heartbeat timeout' => 15,
+      'heartbeat interval' => 20,
+      'polling duration' => 20,
+      'flash policy server' => true,
+      'flash policy port' => 843,
+      'destroy upgrade' => true,
+      'browser client' => true,
+      'browser client minification' => false,
+      'browser client etag' => false,
+      'browser client handler' => false,
+      'client store expiration' => 15
     }
 
     initStore
@@ -38,15 +38,15 @@ class Manager
     @oldListeners = server.listeners('request')
     server.removeAllListeners 'request'
 
-    server.on 'request', { |req, res|
+    server.on 'request', lambda { |req, res|
       handleRequest req, res
     }
 
-    server.on 'upgrade', { |req, socket, head|
+    server.on 'upgrade', lambda { |req, socket, head|
       handleUpgrade(req, socket, head)
     }
 
-    transports.each { | i | 
+    transports.each lambda { | i | 
       i.init self if i.init
     }
 
@@ -103,7 +103,7 @@ class Manager
   end
 
   def transports data 
-    transp = @settings[:transports]
+    transp = @settings['transports']
     ret = []
 
     transp.each { |transport|
@@ -137,8 +137,8 @@ class Manager
     @rooms = {}
     @roomClients = {}
 
-    'handshake connect open join leave close dispatch disconnect'.split(' ').each { | which |
-      @store.subscribe(which, { | *args | self.send("on#{which.capitalize}", args) }
+    ('handshake connect open join leave close dispatch disconnect'.split(' ')).each { | which |
+      @store.subscribe(which, lambda { | *args | self.send("on#{which.capitalize}", args) })
     }
   end
 
@@ -176,7 +176,7 @@ class Manager
         unless exceptions.index[id]
           if @transports[id] and @transports[id].open
             @transports[id].onDispatch packet, volatile
-          else if !volatile
+          elsif !volatile
             onClientDispatch id, packet
           end
         end
@@ -207,12 +207,12 @@ class Manager
     @closed[id] = []
     @closedA.push id
 
-    @store.subscribe "dispatch:#{@id}", { | packet, volatile |
+    @store.subscribe "dispatch:#{@id}", lambda { | packet, volatile |
       onClientDispatch(id, packet) if not volatile
     }
   end
 
-   def onClientDispatch id, packet
+  def onClientDispatch id, packet
     if @closed[id]
       @closed[id].push packet
     end
@@ -220,7 +220,7 @@ class Manager
 
   def onClientMessage id, packet
     if @namespaces[packet[:endpoint]]
-      @namespaces[packet[:endpoint].handlePacket id, packet
+      @namespaces[packet[:endpoint]].handlePacket id, packet
     end
   end
 
@@ -249,12 +249,12 @@ class Manager
     end
 
     if @roomClientsp[id]
-      @roomClients[id].each { | room, value |
-        @rooms.reject! { | x | x == id }
+      @roomClients[id].each lambda { | room, value |
+        @rooms.reject! lambda { | x | x == id }
       }
     end
 
-    @store.destroyClient id, @get('client store expiration')
+    @store.destroyClient id, get('client store expiration')
 
     @store.unsubscribe("dispatch:#{@id}")
 
@@ -265,48 +265,48 @@ class Manager
   end
 
   def handleRequest req, res
-   data = checkRequest req
-
-   unless data
-     @oldListeneres.each { | which |
-       which req, res
-     }
-
-     return
-   end
-
-   if data[:static] || !data[:transport] && !data[:protocol]
-     if data[:static] && @enabled('browser client')
-       handleClientRequest req, res, data
-     else
-       res.writeHead 200
-       res.end 'Welcomet to socket.io'
-
-       log.info 'unhandled socket.io url'
-     end
-
-     return
-   end
-
-   if data[:protocol] != protocol
-     res.writeHead 500
-     res.end 'Protocol version not supported.'
-
-     log.info 'client protocol version unsupported'
-   else
-     if data[:id]
-       handleHTTPRequest data, req, res
-     else
-       handleHandshake data, req, res
-     end
-   end
+    data = checkRequest req
+ 
+    unless data
+      @oldListeneres.each lambda { | which |
+        which req, res
+      }
+ 
+      return
+    end
+ 
+    if data[:static] || !data[:transport] && !data[:protocol]
+      if data[:static] && enabled('browser client')
+        handleClientRequest req, res, data
+      else
+        res.writeHead 200
+        res.end 'Welcomet to socket.io'
+ 
+        log.info 'unhandled socket.io url'
+      end
+ 
+      return
+    end
+ 
+    if data[:protocol] != protocol
+      res.writeHead 500
+      res.end 'Protocol version not supported.'
+ 
+      log.info 'client protocol version unsupported'
+    else
+      if data[:id]
+        handleHTTPRequest data, req, res
+      else
+        handleHandshake data, req, res
+      end
+    end
   end
 
   def handleUpgrade req, socket, head
     data = checkRequest req
 
     if !data
-      if @enabled('destroy upgrade')
+      if enabled('destroy upgrade')
         socket.end
         log.debug 'destroying non-socket.io upgrade'
       end
@@ -329,7 +329,7 @@ class Manager
    store = @store
 
    #TODO
-   if data.query.respond_to? :disconnect)
+   if data.query.respond_to? :disconnect
      if @transports[data[:id]] && @transports[data[:id]].open
        @transports[data[:id]].onForcedDisconnect
      else
@@ -368,15 +368,15 @@ class Manager
        socket = which.socket data[:id], true
 
        # echo back connect packet and fire connection event
-       which.handlePacket(data[:id], { type: 'connect' })
+       which.handlePacket(data[:id], { :type => 'connect' })
      }
 
-     @store.subscribe 'message:' + data[:id], { |packet| 
-       onClientMessage data[:id], packet
+     @store.subscribe "message:#{data[:id]}",lambda { | packet | 
+       onClientMessage(data[:id], packet)
      }
 
-     @store.subscribe 'disconnect:' + data[:id], { |reason| 
-       onClientDisconnect data[:id], reason
+     @store.subscribe 'disconnect:' + data[:id], lambda { |reason| 
+       onClientDisconnect(data[:id], reason)
      }
    else
      if transport.open
@@ -415,8 +415,7 @@ class Manager
     _static = @static
 
     extension = data[:path].split('.').pop
-    file = data[:path] + (@enabled('browser client minification')
-       && extension == 'js' ? '.min' : '')
+    file = data[:path] + (enabled('browser client minification') && extension == 'js' ? '.min' : '')
     location = _static[:paths][:file]
     cache = _static[:cache][:file]
 
@@ -426,8 +425,8 @@ class Manager
     end
 
     def serve
-      if req[:headers]['if-none-match'] == # cache.Etag) {
-        return write 304
+      if req[:headers]['if-none-match'] == cache[:Etag]
+        return write(304)
       end
       
       mime = _static[:mime][extension]
@@ -436,26 +435,26 @@ class Manager
         'Content-Length' => cache.length
       }
 
-      if @enabled('browser client etag') && cache[:Etag]
+      if enabled('browser client etag') && cache[:Etag]
         headers[:Etag] = cache[:Etag]
       end 
 
       write 200, headers, cache[:content], mime[:encoding]
-      log.debug 'served static ' + data.path
+      log.debug 'served static ' + data[:path]
     end
 
     if get('browser client handler')
-      get('browser client handler')(req, res)
+      get('browser client handler').call(req, res)
     else if cache.nil?
-      fs.readFile location, { |err, data|
+      fs.readFile location, lambda { |err, data|
         if (err) 
-          write 500, null, 'Error serving static ' + data.path
-          log.warn "Can\'t cache " + data.path +', ' + err.message
+          write 500, null, 'Error serving static ' + data[:path]
+          log.warn "Can\'t cache " + data[:path] + ', ' + err.message
           return
         end
 
         cache = @static[:cache][file] = {
-          :content => data
+          :content => data,
           :length => data.length,
           :Etag => client[:version]
         }
@@ -494,7 +493,7 @@ class Manager
 
     handshakeData = handshakeData data
 
-    authorize handshakeData, { |err, authorized, newData|
+    authorize handshakeData, lambda { |err, authorized, newData|
       if err 
         return error err
       end
@@ -503,7 +502,7 @@ class Manager
         id = generateId
         hs = [ id, 
               get('heartbeat timeout') || '',
-              get('close timeout') || ''
+              get('close timeout') || '',
               transports(data).join(',')
             ].join(':')
  
@@ -544,11 +543,11 @@ class Manager
     end
  
     {
-      :headers => data[:headers]
+      :headers => data[:headers],
       :address => connectionAddress,
-      :time => DateTime.now.to_s
+      :time => DateTime.now.to_s,
       # TODO
-      :xdomain: !!data.request.headers.origin
+      #:xdomain: !!data.request.headers.origin,
       :secure => data[:request][:connection][:secure]
     }
   end
@@ -580,10 +579,10 @@ class Manager
   def authorize data, fn
     if get('authorization')
       
-      get('authorization')(data, { |err, authorized |
+      get('authorization').call(data, lambda { | err, authorized |
         log.debug('client ' + authorized ? 'authorized' : 'unauthorized')
         fn(err, authorized)
-      }
+      })
     else
       log.debug 'client authorized'
       fn nil, true
@@ -592,7 +591,7 @@ class Manager
   end
  
   def transports data
-    (get 'transports').accept { | which |
+    (get 'transports').accept lambda { | which |
       which and ( !which.checkClient or which.checkClient data )
     }
   end

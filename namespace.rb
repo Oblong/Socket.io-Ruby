@@ -12,12 +12,12 @@ class SocketNamespace
   end
 
   def clients room
-    room = @name + (room.nil? '/' + room : '')
+    room = @name + (room.nil? ? ('/' + room) : '')
 
     return [] unless @manager.rooms[room]
 
     @manager.rooms[room].map! { |id| 
-      @socket id
+      socket id
     }
   end
 
@@ -86,7 +86,7 @@ class SocketNamespace
     })
   end
 
-  def socket sid, readable
+  def socket(sid, readable=nil)
     @sockets[sid] = Socket.new(@manager, sid, self, readable) unless @sockets[sid]
   end
 
@@ -104,10 +104,10 @@ class SocketNamespace
   def authorize data, fn
     if @auth
       #TODO
-      @auth data, { | err, authorized |
+      @auth.call(data, lambda { | err, authorized |
         log.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + @name)
         fn(err, authorized)
-      }
+      })
     else
       log.debug "client authorized for #{@name}"
       fn nil, true
@@ -116,13 +116,13 @@ class SocketNamespace
   end
 
   def handlePacket sessid, packet
-    socket = @socket sessid
+    _socket = socket sessid
     dataAck = packet[:ack] = 'data'
 
     def ack(*args)
       log.debug 'sending data ack packet'
 
-      socket.packet({
+      _socket.packet({
         :type => 'ack',
         :args => args,
         :ackId => packet[:id]
@@ -132,7 +132,7 @@ class SocketNamespace
     def doError err
       log.warn 'handshake error ' + err + ' for ' + @name
 
-      socket.packet({
+      _socket.packet({
         :type => 'error',
         :reason => err
       })
@@ -143,7 +143,7 @@ class SocketNamespace
       @store.publish 'join', sessid, @name
 
       # packet echo
-      socket.packet({ 
+      _socket.packet({ 
         :type => 'connect' 
       })
 
@@ -176,8 +176,8 @@ class SocketNamespace
 
     when 'ack'
       # TODO
-      if socket[:acks][packet[:ackId]]
-        socket[:acks][packet[:ackId]] socket, packet.args
+      if _socket[:acks][packet[:ackId]]
+        _socket[:acks][packet[:ackId]].call( _socket, packet.args )
       else
         log.info 'unknown ack packet'
       end 
@@ -189,13 +189,13 @@ class SocketNamespace
         params.push ack
       end
 
-      socket._emit socket, params
+      _socket._emit _socket, params
 
     when 'disconnect'
       @manager.onLeave sessid, @name
       @store.publish 'leave', sessid, @name
 
-      socket._emit 'disconnect', packet[:reason] || 'packet'
+      _socket._emit 'disconnect', packet[:reason] || 'packet'
 
     when 'json'
     when 'message'
@@ -205,7 +205,7 @@ class SocketNamespace
         params.push ack
       end
 
-      socket._emit socket, params
+      _socket._emit _socket, params
     end
   end 
 end

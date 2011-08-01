@@ -13,7 +13,7 @@ module Transport
           :status => 200,
           :header => {
             'Content-Type' => 'text/html',
-            'Connection' => 'keep-alive'
+            'Connection' => 'keep-alive',
             'Transfer-Encoding' => 'chunked'
           }, 
           :body => [

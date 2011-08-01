@@ -12,12 +12,12 @@ module Transport
 
       headers = {
         'Content-Type' => 'text/plain; charset=UTF-8',
-        'Content-Length' => data.nil? 0 : data.length,
+        'Content-Length' => data.nil? ? 0 : data.length,
         'Connection' => 'Keep-Alive'
       }
 
 
-      if origin)
+      if origin
         # https://developer.mozilla.org/En/HTTP_Access_Control
         headers['Access-Control-Allow-Origin'] = '*';
 
