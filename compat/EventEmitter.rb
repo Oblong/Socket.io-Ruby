@@ -1,6 +1,10 @@
 module EventEmitter
 
   def listeners(event = nil)
+    (get event).map { | which | @registrar[which] }
+  end
+
+  def get(event = nil)
     # This is needed for once, unless
     # you have a better idea how to 
     # implement it
@@ -15,7 +19,7 @@ module EventEmitter
     emit('newListener', [event, function])
     @registrar_index += 1
     @registrar[@registrar_index] = function
-    (listeners event) << @registrar_index
+    (get event) << @registrar_index
     @registrar_index
   end
 
@@ -32,44 +36,23 @@ module EventEmitter
 
   def removeListener(event, function)
     if function.class == Fixnum
-      listeners(event).reject! { | handle | handle == function }
+      get(event).reject! { | handle | handle == function }
     else
-      listeners(event).reject! { | handle | @registrar[handle] == function }
+      get(event).reject! { | handle | @registrar[handle] == function }
     end
   end
 
   def removeAllListeners(event)
-    listeners(event).each { | index |
+    get(event).each { | index |
       @registrar.delete index
     }
-    listeners(event).clear
+    get(event).clear
   end
 
   def emit(event, *args)
-    listeners(event).each { | index |
+    get(event).each { | index |
       @registrar[index].call(*args)
     }
   end
 end
 
-class Test
-  include EventEmitter
-
-  def initialize; end
-end
-
-a = Test.new
-
-def fun(x)
-  puts x 
-end
-
-def fun1(x)
-  puts "HEllo" + x
-end
-
-a.once("something", method(:fun))
-a.emit("something", "of value")
-a.once("something", method(:fun1))
-a.emit("something", "of value")
-a.emit("something", "of value")

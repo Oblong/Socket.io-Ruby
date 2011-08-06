@@ -46,8 +46,8 @@ class Manager
       handleUpgrade(req, socket, head)
     }
 
-    transports.each lambda { | i | 
-      i.init self if i.init
+    transports.each lambda { | trans | 
+      eval(trans).init if eval(trans).responds_to? :init
     }
 
     log.info('socket.io started')
@@ -100,25 +100,17 @@ class Manager
 
   def transports data 
     transp = @settings['transports']
-    ret = []
 
-    transp.each { |transport|
-      if transport
-        if (!transport.checkClient || transport.checkClient(data)) 
-          ret.push transport
-        end
-      end
+    transp.accept { |transport|
+      transport && (!transport.checkClient || transport.checkClient(data))
     }
-
-    ret
   end
 
   def configure env, fn
-    # TODO
     if env.class == Method
-      env.call(self)
+      env.call
     elsif env == process[:env].NODEENV
-      fn.call(self)
+      fn.call
     end
 
     self
@@ -172,7 +164,7 @@ class Manager
         unless exceptions.index[id]
           if @transports[id] and @transports[id].open
             @transports[id].onDispatch packet, volatile
-          elsif !volatile
+          elsif not volatile
             onClientDispatch id, packet
           end
         end
@@ -184,7 +176,7 @@ class Manager
     @roomClients[id] = {} if @roomClients[id].nil?
     @rooms[name] = [] if @rooms[name].nil?
 
-    @rooms[name].push(id)
+    @rooms[name] << id
     @roomClients[id][name] = true
   end
 
@@ -201,7 +193,7 @@ class Manager
     end
 
     @closed[id] = []
-    @closedA.push id
+    @closedA << id
 
     @store.subscribe "dispatch:#{@id}", lambda { | packet, volatile |
       onClientDispatch(id, packet) if not volatile
@@ -210,7 +202,7 @@ class Manager
 
   def onClientDispatch id, packet
     if @closed[id]
-      @closed[id].push packet
+      @closed[id] << packet
     end
   end
 
@@ -246,7 +238,7 @@ class Manager
 
     if @roomClientsp[id]
       @roomClients[id].each lambda { | room, value |
-        @rooms.reject! lambda { | x | x == id }
+        @rooms.reject! { | x | x == id }
       }
     end
 
@@ -264,7 +256,7 @@ class Manager
     data = checkRequest req
  
     unless data
-      @oldListeneres.each lambda { | which |
+      @oldListeneres.each { | which |
         which req, res
       }
  
@@ -325,7 +317,6 @@ class Manager
     socket = req[:socket]
     store = @store
  
-    #TODO
     if data[:query].respond_to? :disconnect
       if @transports[data[:id]] && @transports[data[:id]].open
         @transports[data[:id]].onForcedDisconnect
@@ -368,7 +359,7 @@ class Manager
           which.handlePacket(data[:id], { :type => 'connect' })
         }
  
-        @store.subscribe "message:#{data[:id]}",lambda { | packet | 
+        @store.subscribe "message:#{data[:id]}", lambda { | packet | 
           onClientMessage(data[:id], packet)
         }
  
@@ -471,7 +462,7 @@ class Manager
 
   def handleHandshake data, req, res
     def writeErr status, message
-      if (data.query.jsonp) 
+      if (data[:query].jsonp) 
         res.writeHead(200, { 'Content-Type' => 'application/javascript' })
         res.doEnd('io.j[' + data[:query][:jsonp] + '](new Error("' + message + '"));')
       else
@@ -595,7 +586,7 @@ class Manager
   end
  
 
-  def checkRequeest req
+  def checkRequest req
     regexp = /^\/([^\/]+)\/?([^\/]+)?\/?([^\/]+)?\/?$/
     resource = get('resource')
  
