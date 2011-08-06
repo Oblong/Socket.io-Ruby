@@ -10,7 +10,7 @@ module Transports
       def create
         # TODO
         server = require('policyfile').createServer({ 
-          log: function(msg){
+          :log function(msg){
             manager.log.info(msg.toLowerCase());
           }
         }, manager.get('origins'))

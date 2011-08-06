@@ -1,4 +1,4 @@
-class FileSession << Store
+class FileSession < Store
 
   def initialize(file)
     @file = file

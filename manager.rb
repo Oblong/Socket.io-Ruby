@@ -2,11 +2,11 @@
 class Manager
 
   attr_accessor :rooms
+  attr_accessor :static
 
   def initialize(server)
     @server = server
     @namespaces = {}
-    #TODO
     @sockets = of('')
 
     @settings = {
@@ -58,20 +58,16 @@ class Manager
 
   def handshakeData; end
 
-  def store
-    get 'store'
-  end
+  def store; get 'store'; end
 
   def log
     return nil if disabled :log
-    logger = get :logger
+    logger = get 'logger'
     logger.level = get 'log level'
     logger
   end
 
-  def get key
-    @settings[key]
-  end
+  def get key; @settings[key]; end
 
   def emitKey(key)
     emit("set:#{key}", @settings[key], key)
@@ -146,7 +142,7 @@ class Manager
     @handshaken[id] = data
   end
 
-  def onConnect(id)
+  def onConnect id
     @connected[id] = true
   end
 
@@ -157,9 +153,9 @@ class Manager
 
       @closedA.reject! { | x | x == id }
       
-      @store.unsubcribe "dispatch:#{@id}" do | x | 
-        @closed.delete :id 
-      end
+      @store.unsubcribe "dispatch:#{@id}", lambda { | x | 
+        @closed.delete id 
+      }
     end
 
     if @transports[id]
@@ -325,69 +321,71 @@ class Manager
   end
 
   def handleClient data, req
-   socket = req[:socket]
-   store = @store
 
-   #TODO
-   if data.query.respond_to? :disconnect
-     if @transports[data[:id]] && @transports[data[:id]].open
-       @transports[data[:id]].onForcedDisconnect
-     else
-       @store.publish "disconnect-force:#{data[:id]}"
-     end 
-
-     return
-   end 
-
-   if !get('transports').index(data.transport)
-     log.warn 'unknown transport: "' + data.transport + '"'
-     req[:connection].end
-     return
-   end 
-
-   transport = @transports[data[:transport]].new data, req
-
-   if @handshaken[data[:id]]
-     if transport.open
-       if @closed[data[:id]] && @closed[data[:id]].length
-         transport.payload(@closed[data[:id]])
-         @closed[data[:id]] = []
-       end
-
-       onOpen(data[:id])
-       @store.publish('open', data[:id])
-       @transports[data[:id]] = transport
-     end
-
-   if !@connected[data[:id]]
-     onConnect data[:id]
-     @store.publish 'connect', data[:id]
-
-     #initialize the socket for all namespaces
-     @namespaces.each { | which |
-       socket = which.socket data[:id], true
-
-       # echo back connect packet and fire connection event
-       which.handlePacket(data[:id], { :type => 'connect' })
-     }
-
-     @store.subscribe "message:#{data[:id]}",lambda { | packet | 
-       onClientMessage(data[:id], packet)
-     }
-
-     @store.subscribe 'disconnect:' + data[:id], lambda { |reason| 
-       onClientDisconnect(data[:id], reason)
-     }
-   else
-     if transport.open
-       tranport.error 'client not handshaken', 'reconnect'
-     end
-
-     transport.discard
-   end
+    socket = req[:socket]
+    store = @store
+ 
+    #TODO
+    if data[:query].respond_to? :disconnect
+      if @transports[data[:id]] && @transports[data[:id]].open
+        @transports[data[:id]].onForcedDisconnect
+      else
+        @store.publish "disconnect-force:#{data[:id]}"
+      end 
+ 
+      return
+    end 
+ 
+    if !get('transports').index(data.transport)
+      log.warn 'unknown transport: "' + data.transport + '"'
+      req[:connection].end
+      return
+    end 
+ 
+    transport = @transports[data[:transport]].new data, req
+ 
+    if @handshaken[data[:id]]
+      if transport.open
+        if @closed[data[:id]] && @closed[data[:id]].length
+          transport.payload(@closed[data[:id]])
+          @closed[data[:id]] = []
+        end
+ 
+        onOpen(data[:id])
+        @store.publish('open', data[:id])
+        @transports[data[:id]] = transport
+      end
+ 
+      if !@connected[data[:id]]
+        onConnect data[:id]
+        @store.publish 'connect', data[:id]
+ 
+        #initialize the socket for all namespaces
+        @namespaces.each { | which |
+          socket = which.socket data[:id], true
+ 
+          # echo back connect packet and fire connection event
+          which.handlePacket(data[:id], { :type => 'connect' })
+        }
+ 
+        @store.subscribe "message:#{data[:id]}",lambda { | packet | 
+          onClientMessage(data[:id], packet)
+        }
+ 
+        @store.subscribe 'disconnect:' + data[:id], lambda { |reason| 
+          onClientDisconnect(data[:id], reason)
+        }
+      end
+    else
+      if transport.open
+        tranport.error 'client not handshaken', 'reconnect'
+      end
+ 
+      transport.discard
+    end
+ 
   end
 
-  attr_accessor static
   def doStatic
     @static = {
       :cache => {},
@@ -445,7 +443,7 @@ class Manager
 
     if get('browser client handler')
       get('browser client handler').call(req, res)
-    else if cache.nil?
+    elsif cache.nil?
       fs.readFile location, lambda { |err, data|
         if (err) 
           write 500, null, 'Error serving static ' + data[:path]
@@ -464,6 +462,7 @@ class Manager
     else
       serve
     end 
+
   end
 
   def generateID
@@ -525,7 +524,7 @@ class Manager
       end 
     }
   end
- 
+
   def handshakeData data
     connection = data[:request][:connection]
     connectionAddress = {}
@@ -546,12 +545,11 @@ class Manager
       :headers => data[:headers],
       :address => connectionAddress,
       :time => DateTime.now.to_s,
-      # TODO
-      #:xdomain: !!data.request.headers.origin,
+      :xdomain => data.request.headers.origin ? true : false,
       :secure => data[:request][:connection][:secure]
     }
   end
- 
+
   def verifyOrigin request
     origin = request[:header][:origin]
     origins = get('origins')
@@ -575,7 +573,7 @@ class Manager
   def handlePacket sessid, packet
     of(packet[:endpoint] || '').handlePacket sessid, packet
   end
- 
+
   def authorize data, fn
     if get('authorization')
       
@@ -596,15 +594,13 @@ class Manager
     }
   end
  
- 
-  #TODO
-  regexp = /^\/([^\/]+)\/?([^\/]+)?\/?([^\/]+)?\/?$/
+
   def checkRequeest req
+    regexp = /^\/([^\/]+)\/?([^\/]+)?\/?([^\/]+)?\/?$/
     resource = get('resource')
  
-    # TODO
-    if (req.url.substr(0, resource.length) == resource) 
-      uri = url.parse(req.url.substr(resource.length), true)
+    if (req.url[0..resource.length] == resource) 
+      uri = url.parse(req.url[resource.length..-1], true)
       path = uri.pathname || ''
       pieces = path.match(regexp)
    
@@ -628,7 +624,7 @@ class Manager
  
     false
   end
- 
+
   def of nsp
     @namespaces[nsp] = SocketNamespace.new nsp unless @namespaces[nsp]
   end

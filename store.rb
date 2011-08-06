@@ -6,8 +6,7 @@ class Store < EventEmitter
 
   def client id
     unless @clients[id]
-      #TODO 
-      @clients[id] = new (this.constructor.Client)(this, id);
+      @clients[id] = Store::Client.new self, id
     end
 
     @clients[id]
@@ -21,23 +20,22 @@ class Store < EventEmitter
   end
 
   def destroy clientExpiration
-    #TODO
-
-=begin
-Store.prototype.destroy = function (clientExpiration) {
-  var keys = Object.keys(this.clients)
-    , count = keys.length;
-
-  for (var i = 0, l = count; i < l; i++) {
-    this.destroyClient(keys[i], clientExpiration);
-  }
-
-=end
+    @clients.each { | key, value |
+      destroyClient value, clientExpiration
+    }
     @clients = {}
   end
 
-  def client store, id
-    @store = store
-    @id = id
+end
+
+module Store
+  class Client
+    attr_accessor store, id
+
+    def initialize store, id
+      @store = store
+      @id = id
+    end
   end
+
 end

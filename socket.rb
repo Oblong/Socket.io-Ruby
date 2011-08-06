@@ -1,4 +1,5 @@
 class Socket
+  include EventEmitter
 
   def initialize manager, id, nsp, readable
     @manager = manager
@@ -92,7 +93,7 @@ class Socket
   end
 
   def set key, value, fn
-    @store.set key, value fn
+    @store.set key, value, fn
   end
 
   def get key, fn
@@ -133,9 +134,6 @@ class Socket
 
     packet _packet
   end
-
-  ## TODO
-  Socket.prototype._emit = EventEmitter.prototype.emit;
 
   def emit(*ev)
     if ev[0] == 'newListener'

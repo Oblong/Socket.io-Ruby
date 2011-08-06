@@ -1,3 +1,4 @@
+require 'rubygems'
 require 'json'
 
 # snagged from socket.io-node tag v0.7.6

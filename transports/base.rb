@@ -24,48 +24,32 @@ module Transport
     def setHandlers
       # we need to do this in a pub/sub way since the client can POST the message
       # over a different socket (ie: different Transport instance)
-      @store.onMany({
-        'heartbeat-clear:' + @id => lambda { | x | onHeartbeatClear },
-        'disconnect-force:' + @id => lambda { | x | onForcedDisconnect },
-        'dispatch:' + @id => onDispatch
-      })
+      @store.on('heartbeat-clear:' + @id, methods(:onHeartbeatClear))
+      @store.on('disconnect-force:' + @id, methods(:onForceDisconnect))
+      @store.on('dispatch:' + @id, methods(:onDispatch))
 
-#      @socket.onMany {
-=begin
-  @bound = {
-      end: @onSocketEnd.bind(this)
-    , close: @onSocketClose.bind(this)
-    , error: @onSocketError.bind(this)
-    , drain: @onSocketDrain.bind(this)
-  };
+      @socket.on('end', methods(:doEnd))
+      ['close', 'error', 'drain'].each { | which |
+        @socket.on(which, methods(which))
+      }
 
-  @socket.on('end', @bound.end);
-  @socket.on('close', @bound.close);
-  @socket.on('error', @bound.error);
-  @socket.on('drain', @bound.drain);
+      @handlersSet = true
 
-  @handlersSet = true;
-};
-=end
+    end
+
     def clearHandlers
       if @handlersSet
         ['disconnect-force', 'heartbeat-clear', 'dispatch'].each { | which |
           @store.unsubscribe("#{which}:#{@id}")
         }
 
-        ['end', 'close', 'error'].each { | which |
-       #   @socket.removeListener which, ### TBD
+        @socket.removeListener('end', methods(:doEnd))
+        ['close', 'error', 'drain'].each { | which |
+          @socket.removeListener(which, methods(which))
         }
       end
     end
-=begin
-    @socket.removeListener('end', @bound.end);
-    @socket.removeListener('close', @bound.close);
-    @socket.removeListener('error', @bound.error);
-    @socket.removeListener('drain', @bound.drain);
-  }
-};
-=end
+
     def onSocketConnect; end
 
     def onSocketClose err
