@@ -25,7 +25,14 @@ module Transport
 
       data = JSON.generate(data) unless data.kind_of? String
 
-      @socket.emit data
+      @response.writeHead(200, {
+        'Content-Type' => 'text/javascript; charset=UTF-8',
+#        'Content-Length': Buffer.byteLength(data)  
+        'Connection' => 'Keep-Alive',
+        'X-XSS-Protection' => '0' 
+      });
+
+      @response.write data
       log.debug @name + ' writing', data
     end
   end

@@ -4,7 +4,7 @@ class Manager
   attr_accessor :rooms
   attr_accessor :static
 
-  def initialize(server)
+  def initialize(server, options = nil)
     @server = server
     @namespaces = {}
     @sockets = of('')
@@ -33,6 +33,8 @@ class Manager
       'client store expiration' => 15
     }
 
+    @settings.merge!(options) unless options.nil?
+
     initStore
 
     @oldListeners = server.listeners('request')
@@ -44,6 +46,10 @@ class Manager
 
     server.on 'upgrade', lambda { |req, socket, head|
       handleUpgrade(req, socket, head)
+    }
+
+    server.on 'close', lambda { | x |
+      #clearInterval(self.gc)
     }
 
     transports.each lambda { | trans | 
@@ -176,7 +182,7 @@ class Manager
     @roomClients[id] = {} if @roomClients[id].nil?
     @rooms[name] = [] if @rooms[name].nil?
 
-    @rooms[name] << id
+    @rooms[name] << id unless @rooms[name].index(id)
     @roomClients[id][name] = true
   end
 
@@ -213,11 +219,11 @@ class Manager
   end
 
   def onClientDisconnect id, reason
-    onDisconnect id
-
     @namespaces.each { | name, value |
       value.handleDisconnect(id, reason) if @roomClients[id][name]
     }
+
+    onDisconnect id
   end
 
   def onDisconnect(id, local=nil)
