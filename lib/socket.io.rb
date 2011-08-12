@@ -1,5 +1,4 @@
 require 'rubygems'
-require 'rack'
 require 'json'
 require 'uuid'
 require 'cgi'
@@ -16,6 +15,7 @@ module SocketIO
   autoload :Store, "#{ROOT}/store/store"
   autoload :FileSession, "#{ROOT}/store/FileSession"
   autoload :Memory, "#{ROOT}/store/memory"
+  autoload :Socket, "#{ROOT}/socket"
 
   require "#{ROOT}/trasport"
 end

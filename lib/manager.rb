@@ -623,6 +623,6 @@ class Manager
   end
 
   def of nsp
-    @namespaces[nsp] = SocketNamespace.new nsp unless @namespaces[nsp]
+    @namespaces[nsp] = SocketNamespace.new(self, nsp) unless @namespaces[nsp]
   end
 end

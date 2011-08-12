@@ -1,8 +1,9 @@
 
 class SocketNamespace
-# TODO
-#SocketNamespace.prototype.__proto__ = EventEmitter.prototype;
-#SocketNamespace.prototype.$emit = EventEmitter.prototype.emit;
+  include EventEmitter
+
+  alias emit _emit
+
   def initialize mgr, name
     @manager = mgr
     @name = name || ''
@@ -23,24 +24,15 @@ class SocketNamespace
 
   def log; @manager.log; end
   def store; @manager.store; end
-  def json 
-    @flags[:json] = true
-    self
-  end
-
-  def volatile
-    @flags[:volatile] = true
-    self
-  end
+  def json; @flags[:json] = true; end
+  def volatile; @flags[:volatile] = true; end
 
   def in room
     @flags[:endpoint] = @name + (room.nil? ? '' : '/' + room )
-    self
   end
 
   def except id
-    @flags[:exceptions].push id
-    self
+    @flags[:exceptions] << id
   end
 
   def setFlags
@@ -103,10 +95,9 @@ class SocketNamespace
 
   def authorize data, fn
     if @auth
-      #TODO
       @auth.call(data, lambda { | err, authorized |
         log.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + @name)
-        fn(err, authorized)
+        fn.call(err, authorized)
       })
     else
       log.debug "client authorized for #{@name}"
