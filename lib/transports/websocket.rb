@@ -110,14 +110,7 @@ module Transports
           return @buffer.push data
         end
 
-
-        #TODO
-
-        #var length = Buffer.byteLength(data)
-        #, buffer = new Buffer(2 + length);
-        buffer.write([0, 0], 'binary');
-        buffer.write(data, 1, 'utf8');
-        buffer.write([0xff, 0xff], 1 + length, 'binary');
+        buffer = [0, 0, data, 0xff, 0xff].flatten.pack('c*')
 
         begin 
           @drained = true if @socket.write buffer
@@ -139,39 +132,35 @@ module Transports
       k1 = @req.headers['sec-websocket-key1']
       k2 = @req.headers['sec-websocket-key2']
      
+      if k1 and k2
+        md5 = Digest::MD5.new
 
-      if k1 && k2
-      #TODO
-=begin
-    var md5 = crypto.createHash('md5')
+        [k1, k2].each { | k ]
+          n = k.gsub(/[^\d]/, '').to_i
+          spaces = k.gsub(/[^ ]/, '').length
 
-    [k1, k2].forEach(function (k) 
-      n = parseInt(k.replace(/[^\d]/g, ''))
-        , spaces = k.replace(/[^ ]/g, '').length
+          if spaces == 0 or n % spaces !== 0
+            log.warn('Invalid ' + name + ' key: "' + k + '".')
+            doEnd
+            return false
+          end
 
-      if (spaces === 0 || n % spaces !== 0)
-        log.warn('Invalid ' + name + ' key: "' + k + '".')
-        doEnd
-        return false
-      end
+          n /= spaces
 
-      n /= spaces
+          md5.update([
+            n >> 24 & 0xFF,
+            n >> 16 & 0xFF,
+            n >> 8  & 0xFF,
+            n       & 0xFF].pack('c*'))
+        })
 
-      md5.update(String.fromCharCode(
-        n >> 24 & 0xFF,
-        n >> 16 & 0xFF,
-        n >> 8  & 0xFF,
-        n       & 0xFF))
-    })
+        md5.update(@req[:head])
 
-    md5.update(@req.head.toString('binary'))
-
-    begin
-      @socket.write(md5.digest('binary'), 'binary')
-    rescue
-      doEnd
-    end
-=end
+        begin
+          @socket.write(md5.digest('binary'), 'binary')
+        rescue
+          doEnd
+        end
       end
 
       true

@@ -2,6 +2,7 @@ require 'rubygems'
 require 'json'
 require 'uuid'
 require 'cgi'
+require 'digest/md5'
 
 module SocketIO
   ROOT = File.expand_path(File.dirname(__FILE__))
@@ -17,5 +18,5 @@ module SocketIO
   autoload :Memory, "#{ROOT}/store/memory"
   autoload :Socket, "#{ROOT}/socket"
 
-  require "#{ROOT}/trasport"
+  require "#{ROOT}/transport"
 end

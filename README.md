@@ -13,7 +13,13 @@ You'll need a ruby version of the
  * node.js core EventEmitter ( https://github.com/Oblong/EventEmitter-ruby )
  * npm of policyfile ( https://github.com/Oblong/flashpolicyd )
 
-Rack and Thin can help also ... 
+## Gems you'll need
+
+ * uuid
+ * cgi
+ * rack
+ * thin
+ * json
 
 # Notes
 
