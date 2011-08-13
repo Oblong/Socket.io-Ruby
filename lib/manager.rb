@@ -386,7 +386,6 @@ class Manager
   def doStatic
     @static = {
       :cache => {},
-      # TODO
       :paths => {
         '/static/flashsocket/WebSocketMain.swf' => client[:dist] + '/WebSocketMain.swf',
         '/static/flashsocket/WebSocketMainInsecure.swf' => client[:dist] + '/WebSocketMainInsecure.swf',

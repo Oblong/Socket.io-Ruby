@@ -97,15 +97,3 @@ module Parser
     return packet
   end
 end
-
-module Emitter
-  def self.handshake
-    # TODO
-    [
-      UUID.generate,
-      Params.settings['heartbeat timeout'] || '',
-      Params.settings['close timeout'] || '',
-      'xhr-polling'#     , self.transports(data).join(',')
-    ].join(':')
-  end
-end

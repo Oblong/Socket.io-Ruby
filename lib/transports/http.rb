@@ -1,11 +1,8 @@
-#TODO
-#, qs = require('querystring');
-
 module Transport
   class HTTPTransport < Transport::Transport
 
-    #rb
-    attr_accessor @postEncoded
+    #rb only
+    attr_accessor :postEncoded
     def initialize mng, data, req
       super
 
@@ -25,8 +22,7 @@ module Transport
         }
 
         req.on 'end', lambda { | x |
-          #TODO
-          onData(@postEncoded ? qs.parse(buffer).d : buffer)
+          onData(@postEncoded ? CGI::parse(buffer)['d'] : buffer)
         }
 
         if origin

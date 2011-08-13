@@ -39,7 +39,6 @@ class Client < Store
     if expiration.nil?
       @data = {}
     else
-      #TODO
       @closeTimeout = EventMachine::Timer.new(Manager.settings['close timeout'] * 1000) do | x |
         @data = {}
       end

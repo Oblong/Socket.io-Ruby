@@ -68,8 +68,7 @@ class Socket
   def packet _packet
     if @flags[:broadcast]
       log.debug 'broadcasting packet'
-      # TODO
-      #@namespace.in(this.flags.room).except(@id).packet(packet);
+      @namespace.in(@flags[:room]).except(@id).packet(_packet)
     else
       packet[:endpoint] = @flags[:endpoint]
       packet = Parser.encodePacket packet

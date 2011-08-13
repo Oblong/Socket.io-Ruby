@@ -166,9 +166,8 @@ class SocketNamespace
       end
 
     when 'ack'
-      # TODO
       if _socket[:acks][packet[:ackId]]
-        _socket[:acks][packet[:ackId]].call( _socket, packet.args )
+        _socket[:acks][packet[:ackId]].call( packet[:args] )
       else
         log.info 'unknown ack packet'
       end 
