@@ -8,10 +8,11 @@ This project is:
 
 # Requirements
 
-You'll need a ruby version of the
+You'll need a Ruby version of the
 
- * node.js core EventEmitter ( https://github.com/Oblong/EventEmitter-ruby )
- * npm of policyfile ( https://github.com/Oblong/flashpolicyd )
+ * [node.js core EventEmitter](https://github.com/Oblong/EventEmitter-ruby)
+ * [node.js code http](https://github.com/Oblong/Http-Ruby)
+ * [npm of policyfile](https://github.com/Oblong/flashpolicyd)
 
 ## Gems you'll need
 
@@ -23,5 +24,5 @@ You'll need a ruby version of the
 
 # Notes
 
- * Note done yet; don't expect it to work.  It's really close though. (2011-08-11)
+ * Not done yet; don't expect it to work.  It's really close though. (2011-08-18)
  * Wrote in Ruby 1.8.7-p334 on Ubuntu 10.04. That's the testing ground too; your mileage may vary.
