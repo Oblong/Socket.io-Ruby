@@ -79,9 +79,7 @@ module Transport
         log.info 'transport end by forced client disconnection'
 
         if @open
-          packet({ 
-            :type => 'disconnect' 
-          })
+          packet :type => 'disconnect' 
         end
 
         doEnd 'booted'
@@ -157,9 +155,7 @@ module Transport
       if @open
         log.debug 'emitting heartbeat for client'
 
-        packet({ 
-          :type => :heartbeat 
-        })
+        packet :type => :heartbeat 
 
         setHeartbeatTimeout
       end
@@ -224,9 +220,7 @@ module Transport
     end
 
     def disconnect reason
-      packet({ 
-        :type => 'disconnect'
-      })
+      packet :type => 'disconnect'
       doEnd reason
     end
 
