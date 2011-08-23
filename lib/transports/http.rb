@@ -17,13 +17,13 @@ module Transport
         origin = req.headers['origin']
         headers = { 'Content-Length' => 1 }
 
-        req.on 'data', lambda { | data |
+        req.on('data') { | data |
           buffer << data
         }
 
-        req.on 'end', lambda { | x |
+        req.on('end') do
           onData(@postEncoded ? CGI::parse(buffer)['d'] : buffer)
-        }
+        end
 
         unless origin.nil?
           headers['Access-Control-Allow-Origin'] = '*'

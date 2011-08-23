@@ -16,7 +16,7 @@ module Transports
           }
         }, manager.get('origins'))
 
-        @server.on('close', lambda { | x | server = nil })
+        @server.on('close') { | x | server = nil })
 
         @server.listen(manager.get('flash policy port'), manager.server);
 
@@ -24,8 +24,8 @@ module Transports
       end
 
       # listen for origin changes, so we can update the server
-      manager.on 'set:origins', lambda { |value, key|
-        if !@server 
+      manager.on('set:origins') { |value, key|
+        if @server.nil?
           return
         end
 
@@ -35,7 +35,7 @@ module Transports
       }
 
       # destory the server and create a new server
-      manager.on 'set:flash policy port', lambda { |value, key|
+      manager.on('set:flash policy port') { |value, key|
         transports = manager.get 'transports'
 
         if @server.port != value && transports.index('flashsocket')
@@ -46,7 +46,7 @@ module Transports
       }
 
       # only start the server
-      manager.on 'set:transports', lambda { | value, key |
+      manager.on('set:transports') { | value, key |
         if (!@server && manager.get('transports').index('flashsocket')) 
           create
         end 

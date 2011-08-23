@@ -40,15 +40,15 @@ class Manager
     @oldListeners = server.listeners('request')
     server.removeAllListeners 'request'
 
-    server.on 'request', lambda { |req, res|
+    server.on('request') { |req, res|
       handleRequest req, res
     }
 
-    server.on 'upgrade', lambda { |req, socket, head|
+    server.on('upgrade') { |req, socket, head|
       handleUpgrade(req, socket, head)
     }
 
-    server.on 'close', lambda { | x |
+    server.on('close') { | x |
       #clearInterval(self.gc)
     }
 
@@ -151,7 +151,7 @@ class Manager
 
       @closedA.reject! { | x | x == id }
       
-      @store.unsubcribe "dispatch:#{@id}", lambda { | x | 
+      @store.unsubcribe("dispatch:#{@id}") { | x | 
         @closed.delete id 
       }
     end
@@ -201,7 +201,7 @@ class Manager
     @closed[id] = []
     @closedA << id
 
-    @store.subscribe "dispatch:#{@id}", lambda { | packet, volatile |
+    @store.subscribe("dispatch:#{@id}") { | packet, volatile |
       onClientDispatch(id, packet) if not volatile
     }
   end
@@ -365,11 +365,11 @@ class Manager
           which.handlePacket(data[:id], :type => 'connect')
         }
  
-        @store.subscribe "message:#{data[:id]}", lambda { | packet | 
+        @store.subscribe("message:#{data[:id]}") { | packet | 
           onClientMessage(data[:id], packet)
         }
  
-        @store.subscribe 'disconnect:' + data[:id], lambda { |reason| 
+        @store.subscribe("disconnect:#{data[:id]}") { |reason| 
           onClientDisconnect(data[:id], reason)
         }
       end
@@ -488,7 +488,7 @@ class Manager
 
     handshakeData = handshakeData data
 
-    authorize handshakeData, lambda { |err, authorized, newData|
+    authorize(handshakeData) { |err, authorized, newData|
       if err 
         return error err
       end

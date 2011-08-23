@@ -6,14 +6,19 @@ module Transports
       super
       @parser = Parser.new
 
-      @parser.on 'data', lambda { | packet |
+      @parser.on('data') { | packet |
         log.debug packet
         # NOTE: I Don't know how this would actually work...
         onMessage Parser.decodePacket(packet)
       }
 
-      @parser.on 'error', lambda { | x | doEnd }
-      @parser.on 'close', lambda { | x | doEnd }
+      @parser.on('error') do
+        doEnd 
+      end
+
+      @parser.on('close') do
+        doEnd
+      end
     end
 
     def onSocketConnect
@@ -76,7 +81,7 @@ module Transports
 
       headBuffer = ''
 
-      @socket.on 'data', lambda { | data | 
+      @socket.on('data') { | data | 
         if waitingForNonce
 
           headBuffer << data
