@@ -10,12 +10,15 @@ class Logger
   def error(*msg)
     write "Error: #{msg.join(' ')}"
   end
+
   def warn(*msg)
     write "Warn: #{msg.join(' ')}"
   end
+
   def info(*msg)
     write "Info: #{msg.join(' ')}"
   end
+
   def debug(*msg)
     write "Debug: #{msg.join(' ')}"
   end

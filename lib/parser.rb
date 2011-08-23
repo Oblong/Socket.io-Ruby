@@ -31,7 +31,7 @@ module Parser
   def self.decodePacket data
     array = data.match(@regexp)
 
-    return {} if pieces.is_nil?
+    return {} if pieces.nil?
 
     id = array[2] || ''
     data = array[5] || ''
@@ -94,6 +94,6 @@ module Parser
       end
     end
 
-    return packet
+    packet
   end
 end

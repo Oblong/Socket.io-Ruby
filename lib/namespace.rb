@@ -40,7 +40,6 @@ class SocketNamespace
       :endpoint => @name,
       :exceptions => []
     }
-    self
   end
 
   def _packet packet
@@ -55,8 +54,6 @@ class SocketNamespace
     @store.publish 'dispatch', @flags[:endpoint], packet, volatile, exceptions
 
     setFlags
-
-    self
   end
 
   def send data
@@ -84,11 +81,10 @@ class SocketNamespace
 
   def authorization fn
     @auth = fn
-    self
   end
 
   def handleDisconnect sid, reason
-    if @sockets[sid] && @sockets[sid][:readable]
+    if @sockets[sid] and @sockets[sid][:readable]
       @sockets[sid].onDisconnect reason
     end
   end
@@ -103,7 +99,6 @@ class SocketNamespace
       log.debug "client authorized for #{@name}"
       fn nil, true
     end
-    self
   end
 
   def handlePacket sessid, packet
@@ -176,7 +171,7 @@ class SocketNamespace
       params = [packet[:name]].concat(packet[:args])
 
       if dataAck
-        params.push ack
+        params << ack
       end
 
       _socket._emit _socket, params
@@ -192,7 +187,7 @@ class SocketNamespace
       params = ['message', packet[:data]]
 
       if dataAck
-        params.push ack
+        params << ack
       end
 
       _socket._emit _socket, params
