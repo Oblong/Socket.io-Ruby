@@ -16,8 +16,7 @@ module Transport
         'Connection' => 'Keep-Alive'
       }
 
-
-      if origin
+      unless origin.nil?
         # https://developer.mozilla.org/En/HTTP_Access_Control
         headers['Access-Control-Allow-Origin'] = '*';
 

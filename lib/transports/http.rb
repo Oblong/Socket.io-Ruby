@@ -14,7 +14,7 @@ module Transport
       if req.method == 'POST'
         buffer = ''
         res = req.res
-        origin = req.headers.origin
+        origin = req.headers['origin']
         headers = { 'Content-Length' => 1 }
 
         req.on 'data', lambda { | data |
@@ -25,10 +25,10 @@ module Transport
           onData(@postEncoded ? CGI::parse(buffer)['d'] : buffer)
         }
 
-        if origin
+        unless origin.nil?
           headers['Access-Control-Allow-Origin'] = '*'
 
-          if req.headers.cookie 
+          unless req.headers['cookie'].nil?
             headers['Access-Control-Allow-Credentials'] = 'true'
           end
         end
@@ -49,7 +49,7 @@ module Transport
     end
 
     def doClose
-      response.end
+      response.doEnd
     end
 
     def payload msgs

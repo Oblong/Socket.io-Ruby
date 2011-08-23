@@ -6,13 +6,14 @@ module Transports
       super
       @parser = Parser.new
 
-      @parser.on :data, lambda { | packet |
+      @parser.on 'data', lambda { | packet |
         log.debug packet
+        # NOTE: I Don't know how this would actually work...
         onMessage Parser.decodePacket(packet)
       }
 
-      @parser.on :error, lambda { | x | doEnd }
-      @parser.on :close, lambda { | x | doEnd }
+      @parser.on 'error', lambda { | x | doEnd }
+      @parser.on 'close', lambda { | x | doEnd }
     end
 
     def onSocketConnect
@@ -21,17 +22,17 @@ module Transports
       @buffer = true
       @buffered = []
 
-      if @req[:headers][:upgrade] != 'WebSocket'
+      if @req.headers[:upgrade] != 'WebSocket'
         log.warn "#{@name} connection invalid"
         return doEnd
       end
 
-      origin = @req[:headers][:origin]
+      origin = @req.headers[:origin]
 
       location = (@socket[:encrypted] ? 'wss' : 'ws') + '://' + @req[:headers][:host] + @req[:url]
       waitingForNonce = false
 
-      if @req[:headers]['sec-web-socket-key1']
+      if @req.headers['sec-web-socket-key1']
         # If we don't have the nonce yet, wait for it (HAProxy compatibility).
         if ! (@req[:head] and @req[:head].length >= 8)
           waitingForNonce = true
@@ -45,8 +46,8 @@ module Transports
           "Sec-WebSocket-Location: #{location}"
         ]
 
-        if @req[:headers]['sec-websocket-protocol']
-          headers.push "Sec-WebSocket-Protocol: " + @req[:headers]['sec-websocket-protocol']
+        if @req.headers['sec-websocket-protocol']
+          headers.push "Sec-WebSocket-Protocol: " + @req.headers['sec-websocket-protocol']
         end
       else
         headers = [

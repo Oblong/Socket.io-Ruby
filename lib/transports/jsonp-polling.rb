@@ -11,7 +11,7 @@ module Transport
       @postEncoded = true
       @head = 'io.j[0]('
       @foot = ');'
-      @head = 'io.j[' + data.query.i + '](' if data[:query][:i]
+      @head = 'io.j[' + data[:query][:i] + '](' if data[:query][:i]
     end
 
     def doWrite data
@@ -27,10 +27,10 @@ module Transport
 
       @response.writeHead(200, {
         'Content-Type' => 'text/javascript; charset=UTF-8',
-#        'Content-Length': Buffer.byteLength(data)  
+        'Content-Length' => data.length, #Buffer.byteLength(data)  
         'Connection' => 'Keep-Alive',
         'X-XSS-Protection' => '0' 
-      });
+      })
 
       @response.write data
       log.debug @name + ' writing', data

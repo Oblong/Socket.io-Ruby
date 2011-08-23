@@ -173,7 +173,7 @@ module Transport
           @store.publish "heartbeat-clear:#{@id}"
         end
       else 
-        if ('disconnect' == packet[:type] && packet[:endpoint] == '')
+        if 'disconnect' == packet[:type] and packet[:endpoint] == ''
           log.debug 'got disconnection packet'
 
           if current
@@ -185,7 +185,7 @@ module Transport
           return
         end
 
-        if (packet[:id] && packet[:ack] != 'data') 
+        if packet[:id] and packet[:ack] != 'data'
           log.debug 'acknowledging packet automatically'
 
           ack = Parser.encodePacket({
@@ -194,7 +194,7 @@ module Transport
             :endpoint => packet[:endpoint] || ''
           })
 
-          if (current && current.open) 
+          if (current and current.open) 
             current.onDispatch ack
           else
             @manager.onClientDispatch @id, ack
