@@ -10,17 +10,17 @@ module Transport
 
       if req.method == 'GET'
         req.response = {
-          :status => 200,
-          :header => {
+          'status' => 200,
+          'header' => {
             'Content-Type' => 'text/html',
             'Connection' => 'keep-alive',
             'Transfer-Encoding' => 'chunked'
           }, 
-          :body => [
+          'body' => [
             '<html><body>',
             '<script>var _ = function (msg) { parent.s._(msg, document); };</script>',
             (0..174).map{' '}.join
-          ]
+          ].join('')
         }
       end
     end

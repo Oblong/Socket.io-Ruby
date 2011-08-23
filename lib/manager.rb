@@ -243,7 +243,7 @@ class Manager
     end
 
     if @roomClientsp[id]
-      @roomClients[id].each lambda { | room, value |
+      @roomClients[id].each { | room, value |
         @rooms.reject! { | x | x == id }
       }
     end
@@ -301,7 +301,7 @@ class Manager
 
     if !data
       if enabled('destroy upgrade')
-        socket.end
+        socket.doEnd
         log.debug 'destroying non-socket.io upgrade'
       end
 
@@ -333,9 +333,9 @@ class Manager
       return
     end 
  
-    if !get('transports').index(data.transport)
+    unless get('transports').index(data.transport)
       log.warn 'unknown transport: "' + data.transport + '"'
-      req[:connection].end
+      req[:connection].doEnd
       return
     end 
  
@@ -343,7 +343,7 @@ class Manager
  
     if @handshaken[data[:id]]
       if transport.open
-        if @closed[data[:id]] && @closed[data[:id]].length
+        if @closed[data[:id]] && @closed[data[:id]].length > 0
           transport.payload(@closed[data[:id]])
           @closed[data[:id]] = []
         end
@@ -353,7 +353,7 @@ class Manager
         @transports[data[:id]] = transport
       end
  
-      if !@connected[data[:id]]
+      unless @connected[data[:id]]
         onConnect data[:id]
         @store.publish 'connect', data[:id]
  
@@ -362,7 +362,7 @@ class Manager
           socket = which.socket data[:id], true
  
           # echo back connect packet and fire connection event
-          which.handlePacket(data[:id], { :type => 'connect' })
+          which.handlePacket(data[:id], :type => 'connect')
         }
  
         @store.subscribe "message:#{data[:id]}", lambda { | packet | 
@@ -442,8 +442,8 @@ class Manager
     elsif cache.nil?
       fs.readFile location, lambda { |err, data|
         if (err) 
-          write 500, null, 'Error serving static ' + data[:path]
-          log.warn "Can\'t cache " + data[:path] + ', ' + err.message
+          write 500, nil, 'Error serving static ' + data[:path]
+          log.warn "Can't cache " + data[:path] + ', ' + err.message
           return
         end
 
@@ -468,7 +468,7 @@ class Manager
   def handleHandshake data, req, res
     def writeErr status, message
       if (data[:query].jsonp) 
-        res.writeHead(200, { 'Content-Type' => 'application/javascript' })
+        res.writeHead(200, 'Content-Type' => 'application/javascript')
         res.doEnd('io.j[' + data[:query][:jsonp] + '](new Error("' + message + '"));')
       else
         res.writeHead status
