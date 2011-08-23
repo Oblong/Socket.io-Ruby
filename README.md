@@ -19,7 +19,6 @@ You'll need a Ruby version of the
  * uuid
  * cgi
  * rack
- * thin
  * json
 
 # Notes
