@@ -2,7 +2,7 @@
 class SocketNamespace
   include EventEmitter
 
-  alias emit _emit
+  alias _emit emit
 
   def initialize mgr, name
     @manager = mgr
@@ -193,4 +193,5 @@ class SocketNamespace
       _socket._emit _socket, params
     end
   end 
+
 end

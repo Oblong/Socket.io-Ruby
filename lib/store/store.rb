@@ -2,7 +2,7 @@
 # information for each host in case something crashes or becomes temporarily unavailable
 class Store
 
-  def initialize(file); end
+  def initialize(*opts); end
   def getsession(block); end
   def dump(); end
   def get(key); end

@@ -12,11 +12,11 @@ class Manager
     @settings = {
       'origins' => '*:*',
       'log' => true,
-      'store' => MemoryStore.new,
+      'store' => Memory.new,
       'logger' => Logger.new,
       'heartbeats' => true,
       'resource' => '/socket.io',
-      'transports' => [ 'websocket' 'htmlfile' 'xhr-polling' 'jsonp-polling' ],
+      'transports' => [ 'WebSocket' 'HTMLFile' 'XhrPolling' 'JsonpPolling' ],
       'authorization' => false,
       'log level' => 3,
       'close timeout' => 25,
@@ -52,9 +52,11 @@ class Manager
       #clearInterval(self.gc)
     }
 
-    transports.each lambda { | trans | 
+=begin
+    transports.each { | trans | 
       eval(trans).init if eval(trans).responds_to? :init
     }
+=end
 
     log.info('socket.io started')
     
@@ -101,7 +103,7 @@ class Manager
   end
 
   def disabled key
-    !@settings[key]
+    @settings[key] == false
   end
 
   def transports data 
@@ -131,8 +133,17 @@ class Manager
     @rooms = {}
     @roomClients = {}
 
-    ('handshake connect open join leave close dispatch disconnect'.split(' ')).each { | which |
-      @store.subscribe(which, lambda { | *args | self.send("on#{which.capitalize}", args) })
+    [
+      'handshake', 
+      'connect',
+      'open',
+      'join',
+      'leave',
+      'close',
+      'dispatch',
+      'disconnect'
+    ].each { | which |
+      store.subscribe(which) { | *args | self.send("on#{which.capitalize}", args) }
     }
   end
 
@@ -387,10 +398,14 @@ class Manager
     @static = {
       :cache => {},
       :paths => {
-        '/static/flashsocket/WebSocketMain.swf' => client[:dist] + '/WebSocketMain.swf',
-        '/static/flashsocket/WebSocketMainInsecure.swf' => client[:dist] + '/WebSocketMainInsecure.swf',
-        '/socket.io.js' => client[:dist] + '/socket.io.js',
-        '/socket.io.js.min' => client[:dist]+ '/socket.io.min.js'
+        # '/static/flashsocket/WebSocketMain.swf' => client[:dist] + '/WebSocketMain.swf',
+        # '/static/flashsocket/WebSocketMainInsecure.swf' => client[:dist] + '/WebSocketMainInsecure.swf',
+        # '/socket.io.js' => client[:dist] + '/socket.io.js',
+        # '/socket.io.js.min' => client[:dist]+ '/socket.io.min.js'
+        '/static/flashsocket/WebSocketMain.swf' => '/WebSocketMain.swf',
+        '/static/flashsocket/WebSocketMainInsecure.swf' => '/WebSocketMainInsecure.swf',
+        '/socket.io.js' => '/socket.io.js',
+        '/socket.io.js.min' => '/socket.io.min.js'
       }, 
       :mime => {
         :js => {
