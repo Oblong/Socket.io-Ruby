@@ -1,13 +1,7 @@
 class Memory < Store
-  include EventEmitter
-
   def initialize(*opts)
     super
   end
-
-  alias subscribe on
-  def publish; end
-  def unsubscribe; end
 end
 
 class Client < Store

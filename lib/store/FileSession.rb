@@ -1,14 +1,16 @@
 class FileSession < Store
 
-  def initialize(file)
-    @file = file
-    @lock = file + '.lock'
+  def initialize(*opts)
+    @file = opts[0]
+    @lock = @file + '.lock'
   end
     
   def getsession(&block)
     ret = nil
     store = nil
+
     File.open(@lock, File::CREAT, 0666) do |lock|
+
       # lock the file
       lock.flock File::LOCK_EX
 
