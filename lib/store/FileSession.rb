@@ -13,7 +13,11 @@ class FileSession < Store
       lock.flock File::LOCK_EX
 
       if File.exist?(@file)
-        store = YAML.load_file(@file)
+        begin
+          store = YAML.load_file(@file)
+        rescue
+          store = {}
+        end
       end
 
       unless store.is_a?(Hash)
@@ -34,7 +38,7 @@ class FileSession < Store
     ret
   end
 
-  def dump()
+  def dump
     getsession { |store| store }
   end
 
@@ -43,7 +47,12 @@ class FileSession < Store
   end
 
   def hashget(key, value)
-    getsession { |store| store[key][value] }
+    getsession { |store| 
+      unless store.has_key?(key) and store[key].is_a?(Hash)
+        store[key] = {}
+      end
+      store[key][value] 
+    }
   end
 
   def set(key, value)
