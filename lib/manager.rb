@@ -41,6 +41,7 @@ class Manager
     server.removeAllListeners 'request'
 
     server.on('request') { |req, res|
+      puts req, res
       handleRequest req, res
     }
 
@@ -273,7 +274,7 @@ class Manager
     data = checkRequest req
  
     unless data
-      @oldListeneres.each { | which |
+      @oldListeners.each { | which |
         which req, res
       }
  
