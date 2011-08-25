@@ -1,8 +1,32 @@
+# socket.io-ruby
+# Copyright(c) 2011 Oblong <chris@oblong.com>
+# MIT Licensed
+#
+# Derived from
+# socket.io-node
+# Copyright(c) 2011 LearnBoost <dev@learnboost.com>
+# MIT Licensed
 
+# Manager constructor.
+#
+# @param [HTTPServer] server
+# @param [Object] options, optional
+# @api public
 class Manager
 
   attr_accessor :rooms
   attr_accessor :static
+
+  # rb only {
+  #  Notes: We really can't include the client side
+  #  JS and parse it, so we have to fake it here.
+  #  
+  #  This is ok since we aren't using much data from it anyway
+  attr_reader :client
+  @@client = {
+    :version => '0.7.9'
+  }
+  # }
 
   def initialize(server, options = nil)
     @server = server
@@ -13,7 +37,7 @@ class Manager
       'origins' => '*:*',
       'log' => true,
       'store' => Memory.new,
-      'logger' => Logger.new,
+      'logger' => SocketIO::Logger.new,
       'heartbeats' => true,
       'resource' => '/socket.io',
       'transports' => [ 'WebSocket' 'HTMLFile' 'XhrPolling' 'JsonpPolling' ],
@@ -41,7 +65,6 @@ class Manager
     server.removeAllListeners 'request'
 
     server.on('request') { |req, res|
-      puts req, res
       handleRequest req, res
     }
 
@@ -49,11 +72,11 @@ class Manager
       handleUpgrade(req, socket, head)
     }
 
+=begin
     server.on('close') { | x |
-      #clearInterval(self.gc)
+      clearInterval(self.gc)
     }
 
-=begin
     transports.each { | trans | 
       eval(trans).init if eval(trans).responds_to? :init
     }
@@ -67,8 +90,14 @@ class Manager
 
   def handshakeData; end
 
+  # store accessor shortcut.
+  # 
+  # @api public
   def store; get 'store'; end
 
+  # Logger accessor.
+  #
+  # @api public
   def log
     return nil if disabled :log
     logger = get 'logger'
@@ -76,45 +105,56 @@ class Manager
     logger
   end
 
-  def get key; @settings[key]; end
-
-  def emitKey(key)
-    emit("set:#{key}", @settings[key], key)
+  # Get settings.
+  # 
+  # @api public
+  def get key 
+    @settings[key]
   end
 
+  # Set settings.
+  # 
+  # @api public
   def set(key, value=nil)
     return @settings[key] if value.nil?
 
     @settings[key] = value
-    emitKey key
+    emit("set:#{key}", @settings[key], key)
   end
 
+  # Enable a setting
+  # 
+  # @api public
   def enable key
     @settings[key] = true
-    emitKey key
+    emit("set:#{key}", @settings[key], key)
   end
 
+  # Disable a setting
+  # 
+  # @api public
   def disable key
     @settings[key] = false
-    emitKey key
+    emit("set:#{key}", @settings[key], key)
   end
 
+  # Checks if a setting is enabled
+  #
+  # @api public
   def enabled key
     @settings[key]
   end
 
+  # Checks if a setting is disabled
+  #
+  # @api public
   def disabled key
     @settings[key] == false
   end
 
-  def transports data 
-    transp = @settings['transports']
-
-    transp.accept { |transport|
-      transport && (!transport.checkClient || transport.checkClient(data))
-    }
-  end
-
+  # Configure callbacks.
+  #
+  # @api public
   def configure env, fn
     if env.class == Method
       env.call
@@ -125,6 +165,9 @@ class Manager
     self
   end
 
+  # Initializes everything related to the message dispatcher.
+  # 
+  # @api private
   def initStore
     @handshaken = {}
     @connected = {}
@@ -148,14 +191,23 @@ class Manager
     }
   end
 
+  # Called when a client handshakes.
+  # 
+  # @param text
   def onHandshake(id, data)
     @handshaken[id] = data
   end
 
+  # Called when a client connects (ie: transport first opens)
+  # 
+  # @api private
   def onConnect id
     @connected[id] = true
   end
 
+  # Called when a client opens a request in a different node.
+  # 
+  # @api private
   def onOpen id
     @open[id] = true
 
@@ -173,7 +225,10 @@ class Manager
       @trasnports[id] = nil
     end
   end
-
+ 
+  # Called when a message is sent to a namespace and/or room.
+  # 
+  # @api private
   def onDispatch room, packet, volatile, exceptions
     if @rooms[room]
       @rooms.each_index { | i |
@@ -190,6 +245,9 @@ class Manager
     end
   end      
 
+  # Called when a client joins a nsp / room.
+  # 
+  # @api private
   def onJoin id, name
     @roomClients[id] = {} if @roomClients[id].nil?
     @rooms[name] = [] if @rooms[name].nil?
@@ -198,6 +256,9 @@ class Manager
     @roomClients[id][name] = true
   end
 
+  # Called when a client leaves a nsp / room.
+  # 
+  # @param private
   def onLeave id, room
     if @rooms[room]
       @rooms[room].reject! { | x | x == id }
@@ -205,6 +266,9 @@ class Manager
     end
   end
 
+  # Called when a client closes a request in different node.
+  # 
+  # @api private
   def onClose id
     if @open[id]
       @open.delete id
@@ -218,18 +282,27 @@ class Manager
     }
   end
 
+  # Dispatches a message for a closed client.
+  # 
+  # @api private
   def onClientDispatch id, packet
     if @closed[id]
       @closed[id] << packet
     end
   end
 
+  # Receives a message for a client.
+  # 
+  # @api private
   def onClientMessage id, packet
     if @namespaces[packet[:endpoint]]
       @namespaces[packet[:endpoint]].handlePacket id, packet
     end
   end
 
+  # Fired when a client disconnects (not triggered).
+  # 
+  # @api private
   def onClientDisconnect id, reason
     @namespaces.each { | name, value |
       value.handleDisconnect(id, reason) if @roomClients[id][name]
@@ -238,6 +311,9 @@ class Manager
     onDisconnect id
   end
 
+  # Called when a client disconnects.
+  # 
+  # @param text
   def onDisconnect(id, local=nil)
     @handshaken.delete id
 
@@ -270,6 +346,9 @@ class Manager
     end
   end
 
+  # Handles an HTTP request.
+  # 
+  # @api private
   def handleRequest req, res
     data = checkRequest req
  
@@ -308,10 +387,13 @@ class Manager
     end
   end
 
+  # Handles an HTTP Upgrade.
+  # 
+  # @api private
   def handleUpgrade req, socket, head
     data = checkRequest req
 
-    if !data
+    unless data
       if enabled('destroy upgrade')
         socket.doEnd
         log.debug 'destroying non-socket.io upgrade'
@@ -325,13 +407,18 @@ class Manager
     handleClient data, req
   end
 
+  # Handles a normal handshaken HTTP request (eg: long-polling)
+  # 
+  # @api private
   def handleHTTPRequest data, req, ret
     req[res] = res
     handleClient data, req
   end
 
+  # Intantiantes a new client.
+  # 
+  # @api private
   def handleClient data, req
-
     socket = req[:socket]
     store = @store
  
@@ -396,91 +483,111 @@ class Manager
   end
 
   def doStatic
+    base = File.dirname(__FILE__).split('/')[0..-2].join('/') + '/node_modules/socket.io-client/dist'
+
     @static = {
       :cache => {},
       :paths => {
-        # '/static/flashsocket/WebSocketMain.swf' => client[:dist] + '/WebSocketMain.swf',
-        # '/static/flashsocket/WebSocketMainInsecure.swf' => client[:dist] + '/WebSocketMainInsecure.swf',
-        # '/socket.io.js' => client[:dist] + '/socket.io.js',
-        # '/socket.io.js.min' => client[:dist]+ '/socket.io.min.js'
-        '/static/flashsocket/WebSocketMain.swf' => '/WebSocketMain.swf',
-        '/static/flashsocket/WebSocketMainInsecure.swf' => '/WebSocketMainInsecure.swf',
-        '/socket.io.js' => '/socket.io.js',
-        '/socket.io.js.min' => '/socket.io.min.js'
+        '/static/flashsocket/WebSocketMain.swf' => base + '/WebSocketMain.swf',
+        '/static/flashsocket/WebSocketMainInsecure.swf' => base + '/WebSocketMainInsecure.swf',
+        '/socket.io.js' => base + '/socket.io.js',
+        '/socket.io.js.min' => base + '/socket.io.min.js'
       }, 
       :mime => {
-        :js => {
+        'js' => {
           'contentType' => 'application/javascript',
           'encoding' => 'utf8'
         },
-        :swf => {
-           'contentType' => 'application/x-shockwave-flash',
-           'encoding' => 'binary'
+        'swf' => {
+          'contentType' => 'application/x-shockwave-flash',
+          'encoding' => 'binary'
         }
       }
     }
   end
 
+  # Handles a normal handshaken HTTP request (eg: long-polling)
+  #
+  # @api private
   def handleClientRequest req, res, data
+    # rb only
+    #
+    #  Scoping permissions require me to reflect this
+    @res = res
+    @req = req
+
     _static = @static
 
     extension = data[:path].split('.').pop
     file = data[:path] + (enabled('browser client minification') && extension == 'js' ? '.min' : '')
-    location = _static[:paths][:file]
-    cache = _static[:cache][:file]
+    location = _static[:paths][file]
+    cache = _static[:cache][file]
 
-    def write status, headers, content, encoding
-      res.writeHead status, headers || nil
-      res.end content || '', encoding || nil
+    def write(status, headers = nil, content = nil, encoding = 'utf8')
+      @res.writeHead status, headers || nil
+      @res.doEnd content || '', encoding || nil
     end
 
-    def serve
-      if req[:headers]['if-none-match'] == cache[:Etag]
-        return write(304)
+    def serve cache, extension
+      if @req.headers['if-none-match'] == cache['Etag']
+        return write 304
       end
       
-      mime = _static[:mime][extension]
+      mime = @static[:mime][extension]
       headers = {
-        'Content-Type' => mime[:contentType],
-        'Content-Length' => cache.length
+        'Content-Type' => mime['contentType'],
+        'Content-Length' => cache['length']
       }
 
-      if enabled('browser client etag') && cache[:Etag]
-        headers[:Etag] = cache[:Etag]
+      if enabled('browser client etag') && cache['Etag']
+        headers['Etag'] = cache['Etag']
       end 
 
-      write 200, headers, cache[:content], mime[:encoding]
-      log.debug 'served static ' + data[:path]
+      write 200, headers, cache['content'], mime[:encoding]
+      log.debug 'served static ' #+ data[:path]
     end
 
     if get('browser client handler')
       get('browser client handler').call(req, res)
-    elsif cache.nil?
-      fs.readFile location, lambda { |err, data|
-        if (err) 
-          write 500, nil, 'Error serving static ' + data[:path]
-          log.warn "Can't cache " + data[:path] + ', ' + err.message
-          return
-        end
+    elsif @cache.nil?
+      begin
+        file = File.open location, 'rb' 
+        data = file.read
+      rescue
+        write 500, nil, 'Error serving static ' + data[:path]
+        log.warn "Can't cache " + data[:path]
+        return
+      end
 
-        cache = @static[:cache][file] = {
-          :content => data,
-          :length => data.length,
-          :Etag => client[:version]
-        }
-
-        serve
+      cache = @static[:cache][file] = {
+        'content' => data,
+        'length' => data.length.to_s,
+        'Etag' => @@client[:version]
       }
+
+      serve cache, extension
     else
-      serve
+      serve cache, extension
     end 
 
   end
 
+  # Generates a session id.
+  #
+  # @api private
   def generateID
+    # Please note. Ruby's random implementation
+    # seeds before a proper fork.  This means that
+    # if you rely on the built in random, you will
+    # get the some MT sequence on a per thread/fork
+    # basis per instance.  Because of this, we are
+    # using a UUID generator
     UUID.generate
   end
 
+  # Handles a handshake request.
+  #
+  # @api private
   def handleHandshake data, req, res
     def writeErr status, message
       if (data[:query].jsonp) 
@@ -537,6 +644,9 @@ class Manager
     }
   end
 
+  # Gets normalized handshake data
+  #
+  # @api private
   def handshakeData data
     connection = data[:request][:connection]
     connectionAddress = {}
@@ -562,6 +672,9 @@ class Manager
     }
   end
 
+  # Verifies the origin of a request.
+  #
+  # @api private
   def verifyOrigin request
     origin = request[:header][:origin]
     origins = get('origins')
@@ -582,10 +695,17 @@ class Manager
     false
   end
  
+  # Handles an incoming packet.
+  #
+  # @api private
   def handlePacket sessid, packet
     of(packet[:endpoint] || '').handlePacket sessid, packet
   end
 
+  # Performs authentication.
+  #
+  # @param Object client request data
+  # @api private
   def authorize data, fn
     if get('authorization')
       
@@ -599,22 +719,28 @@ class Manager
     end
     self
   end
- 
+
+  # Retrieves the transports adviced to the user.
+  #
+  # @api private
   def transports data
     (get 'transports').accept lambda { | which |
       which and ( !which.checkClient or which.checkClient data )
     }
   end
- 
 
+  # Checks whether a request is a socket.io one.
+  # 
+  # @return [Object] a client request data object or `false`
+  # @api private
+  @@regexp = /^\/([^\/]+)\/?([^\/]+)?\/?([^\/]+)?\/?$/
   def checkRequest req
-    regexp = /^\/([^\/]+)\/?([^\/]+)?\/?([^\/]+)?\/?$/
     resource = get('resource')
  
-    if (req.url[0..resource.length] == resource) 
-      uri = url.parse(req.url[resource.length..-1], true)
-      path = uri.pathname || ''
-      pieces = path.match(regexp)
+    if (req.url[0..resource.length - 1] == resource) 
+      uri = URI.parse req.url[resource.length..-1]
+      path = uri.path || ''
+      pieces = path.match(@@regexp)
    
       # client request data
       data = {
@@ -637,6 +763,9 @@ class Manager
     false
   end
 
+  # Declares a socket namespace
+  # 
+  # @api public
   def of nsp
     @namespaces[nsp] = SocketNamespace.new(self, nsp) unless @namespaces[nsp]
   end

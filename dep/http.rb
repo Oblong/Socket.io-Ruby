@@ -27,9 +27,14 @@ module HTTP
   @@serverInstance = Server.new
 
   class FromRack
-    def initialize(app)
+    def initialize(app, options = {})
       @app = app
       @threadMap = {}
+      @paths = []
+
+      options.each { | key, value |
+        instance_variable_set("@#{key}", value)
+      }
     end
 
     def each 
@@ -46,6 +51,17 @@ module HTTP
     end
 
     def call env
+      matched = false 
+      @paths.each do | path |
+        matched |= (env['REQUEST_URI'][0..path.length - 1] == path)
+      end
+
+      unless matched
+        return @app.call(env) if @app.respond_to? :call
+        return
+      end
+
+
       httpHeaders = env.reject{ | key, value | key.class != String || key[0..3] != 'HTTP' }
       pairwise = {}
 
@@ -68,8 +84,10 @@ module HTTP
       @request.threadMap['request.data'] = @threadMap['request.data'] = Thread.new {
         Thread.stop
 
-        env['rack.input'].each do | data |
-          @request.emit('data', data)
+        unless env['rack.input'].nil?
+          env['rack.input'].each do | data |
+            @request.emit('data', data)
+          end
         end
 
         @request.emit('end')
@@ -176,22 +194,32 @@ module HTTP
         #
         # As a convenience we typecast it to an int, just to try to
         # appease rack
-        @statusCode = (args.shift).to_i
+        @statusCode = (args.shift)
 
         # With the remainder going here if necessry
         if args.length > 0
           headers = args.pop
           # First take the end
-          headers.each { | key, value|
-            @headerMap[key] = value
-          }
+          unless headers.nil?
+            headers.each { | key, value|
+              @headerMap[key] = value
+            }
+          end
         end
 
         # If there is anything left, use that
         # reasonPhrase = args[0] if args.length
       end
 
+      # Rack::Lint::LintError: Content-Type header found in 304 response, not allowed
+      if @statusCode.to_i == 304 and @headerMap.has_key? 'Content-Type'
+        @headerMap.delete 'Content-Type'
+      end
+
+
       @headerFull = [ @statusCode, @headerMap ]
+
+      $stderr.puts YAML.dump(@headerFull)
 
       if @threadMap['response.header'].status.class == String 
         Thread.kill @threadMap['response.header'] 

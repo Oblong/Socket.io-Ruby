@@ -15,7 +15,7 @@ class SocketNamespace
   def clients room
     room = @name + (room.nil? ? ('/' + room) : '')
 
-    return [] unless @manager.rooms[room]
+    return [] if @manager.rooms[room].nil?
 
     @manager.rooms[room].map! { |id| 
       socket id
@@ -75,7 +75,7 @@ class SocketNamespace
     })
   end
 
-  def socket(sid, readable=nil)
+  def socket(sid, readable = nil)
     @sockets[sid] = Socket.new(@manager, sid, self, readable) unless @sockets[sid]
   end
 
@@ -170,9 +170,7 @@ class SocketNamespace
     when 'event'
       params = [packet[:name]].concat(packet[:args])
 
-      if dataAck
-        params << ack
-      end
+      params << ack if dataAck
 
       _socket._emit _socket, params
 
@@ -186,9 +184,7 @@ class SocketNamespace
     when 'message'
       params = ['message', packet[:data]]
 
-      if dataAck
-        params << ack
-      end
+      params << ack if dataAck
 
       _socket._emit _socket, params
     end

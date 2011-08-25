@@ -23,6 +23,7 @@ You'll need a Ruby version of the
 
 ## Notes
 
+ * node_modules imported directory from socket.io
  * Wrote in Ruby 1.8.7-p334 on Ubuntu 10.04. That's the testing ground too; your mileage may vary.
  * A number of ancillary libraries had to be created and maintained to reach the design goal.
 

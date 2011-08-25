@@ -3,10 +3,14 @@ require 'json'
 require 'uuid'
 require 'cgi'
 require 'digest/md5'
+require 'uri'
 
 ROOT = File.expand_path(File.dirname(__FILE__))
 
-autoload :Logger, "#{ROOT}/logger"
+module SocketIO
+  autoload :Logger, "#{ROOT}/logger"
+end
+
 autoload :Manager, "#{ROOT}/manager"
 autoload :SocketNamespace, "#{ROOT}/namespace"
 autoload :Manager, "#{ROOT}/manager"
