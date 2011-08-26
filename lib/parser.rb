@@ -23,21 +23,82 @@ module Parser
     :advice => [ 'reconnect' ]
   }
 
-  def self.decodePayload data
-    if data[0] == '\ufffd'
-      ret = []
+  def encodePacket packet
+    type = packets.index(packet.type)
+    id = packet.id || ''
+    endpoint = packet.endpoint || ''
+    ack = packet.ack
+    data = nil
 
-      data.split('\ufffd').each { | payload |
-        ret.push(Parser.decodePacket payload)
-      }
+    case packet.type
+      when 'error'
+        reason = packet.reason ? reasons.index(packet.reason) : ''
+        adv = packet.advice ? advice.index(packet.advice) : ''
 
-      ret
-    else 
-      [Parser.decodePacket data]
+        if (reason != '' || adv != '')
+          data = reason + (adv != '' ? ('+' + adv) : '')
+        end
+
+      when 'message'
+        if (packet.data != '')
+          data = packet.data
+        end
+
+      when 'event'
+        ev = { 'name' => packet.name }
+
+        if (packet.args && packet.args.length) 
+          ev.args = packet.args
+        end 
+
+        data = JSON.encode(ev)
+
+      when 'json'
+        data = JSON.encode packet.data
+
+      when 'connect'
+        if (packet.qs)
+          data = packet.qs
+        end
+        
+      when 'ack'
+        data = packet.ackId + (packet.args && packet.args.length ? '+' + JSON.encode(packet.args) : '')
     end
+
+    # construct packet with required fragments
+    encoded = [
+      type,
+      id + (ack == 'data' ? '+' : ''),
+      endpoint
+    ]
+
+    # data fragment is optional
+    encoded << data unless data.nil?
+
+    encoded.join(':')
   end
 
-  def self.decodePacket data
+  # Encodes multiple messages (payload).
+  #
+  # @param {Array} messages
+  # @api private
+  def encodePayload packets
+    decoded = ''
+
+    return packets[0] if packets.length == 1
+
+    packets.each do | packet, i |
+      decoded << '\ufffd' + packet.length + '\ufffd' + packets[i]
+    end
+
+    decoded
+  end
+
+
+  # Decodes a packet
+  # 
+  # @api private
+  def decodePacket data
     array = data.match(@regexp)
 
     return {} if pieces.nil?
@@ -104,5 +165,23 @@ module Parser
     end
 
     packet
+  end
+
+  # Decodes data payload. Detects multiple messages
+  # 
+  # @return [Array] messages
+  # @api public
+  def decodePayload data
+    if data[0] == '\ufffd'
+      ret = []
+
+      data[1..-1].split('\ufffd').each { | payload |
+        ret << Parser::decodePacket payload
+      }
+
+      ret
+    else 
+      [Parser::decodePacket data]
+    end
   end
 end

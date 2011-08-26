@@ -7,12 +7,11 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-
 class SocketNamespace
-  include EventEmitter
 
-  alias _emit emit
-
+  # Constructor.
+  # 
+  # @api public.
   def initialize mgr, name
     @manager = mgr
     @name = name || ''
@@ -21,6 +20,17 @@ class SocketNamespace
     setFlags
   end
 
+  # Inherits from EventEmitter.
+  include EventEmitter
+
+  # Copies emit since we override it
+  # 
+  # @api private
+  alias _emit emit
+
+  # Retrieves all clients as Socket instances as an array.
+  #
+  # @api public
   def clients room
     room = @name + (room.nil? ? ('/' + room) : '')
 
@@ -31,19 +41,51 @@ class SocketNamespace
     }
   end
 
-  def log; @manager.log; end
-  def store; @manager.store; end
-  def json; @flags[:json] = true; end
-  def volatile; @flags[:volatile] = true; end
+  # Access logger interface.
+  # 
+  # @api public
+  def log
+    @manager.log
+  end
 
+  # Access store.
+  # 
+  # @api public
+  def store 
+    @manager.store
+  end
+
+  # JSON message flag.
+  # 
+  # @api public
+  def json 
+    @flags[:json] = true
+  end
+
+  # Volatile message flag.
+  # 
+  # @api public
+  def volatile 
+    @flags[:volatile] = true
+  end
+
+  # Overrides the room to relay messages to (flag)
+  # 
+  # @api public
   def in room
     @flags[:endpoint] = @name + (room.nil? ? '' : '/' + room )
   end
 
+  # Adds a session id we should prevent relaying messages to (flag)
+  # 
+  # @api public
   def except id
     @flags[:exceptions] << id
   end
 
+  # Sets the default flags.
+  # 
+  # @api private
   def setFlags
     @flags = {
       :endpoint => @name,
@@ -51,6 +93,9 @@ class SocketNamespace
     }
   end
 
+  # Sends out a packet
+  # 
+  # @api private
   def _packet packet
     packet[:endpoint] = @name
     store = @store
@@ -65,6 +110,9 @@ class SocketNamespace
     setFlags
   end
 
+  # Sends to everyone.
+  # 
+  # @api public
   def send data
     packet({
       :type => @flags[:json] ? 'json' : 'message',
@@ -72,6 +120,9 @@ class SocketNamespace
     })
   end
 
+  # Emits to everyone (override)
+  # 
+  # @api private
   def emit(*name)
     if name[0] == 'newListener'
       return _emit name
@@ -84,20 +135,34 @@ class SocketNamespace
     })
   end
 
+  # Retrieves or creates a write-only socket for a client, unless specified.
+  # 
+  # @param [Boolean] whether the socket will be readable when initialized
+  # @api private
   def socket(sid, readable = nil)
     @sockets[sid] = Socket.new(@manager, sid, self, readable) unless @sockets[sid]
   end
 
+  # Sets authorization for this namespace
+  # 
+  # @api public
   def authorization fn
     @auth = fn
   end
 
+  # Called when a socket disconnects entirely.
+  # 
+  # @api private
   def handleDisconnect sid, reason
     if @sockets[sid] and @sockets[sid][:readable]
       @sockets[sid].onDisconnect reason
     end
   end
 
+  # Performs authentication.
+  #
+  # @param Object client request data
+  # @api private
   def authorize data, fn
     if @auth
       @auth.call(data, lambda { | err, authorized |
@@ -110,6 +175,9 @@ class SocketNamespace
     end
   end
 
+  # Handles a packet
+  #
+  # @api private
   def handlePacket sessid, packet
     _socket = socket sessid
     dataAck = packet[:ack] = 'data'
