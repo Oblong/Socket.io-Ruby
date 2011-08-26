@@ -13,6 +13,7 @@ You'll need a Ruby version of the
  * [node.js core EventEmitter](https://github.com/Oblong/EventEmitter-ruby)
  * [node.js core http](https://github.com/Oblong/Http-Ruby)
  * [npm of policyfile](https://github.com/Oblong/flashpolicyd)
+ * [some core JS routines implemented in ruby](https://github.com/Oblong/js-Ruby)
 
 ## Gems you'll need
 
@@ -30,6 +31,7 @@ You'll need a Ruby version of the
 
 ## History
 
+ * 2011-08-25 Handshaking working
  * 2011-08-23 Bootstrapping right. This is big! :)
  * 2011-08-18 Still working on the other libraries.
  * 2011-08-11 Not done yet; don't expect it to work. It's really close though.

@@ -9,6 +9,7 @@
 
 module Transports
   class Base
+    include JS
     attr_accessor :open, :discarded, :id
     attr_accessor :name, :postEncoded
     attr_accessor :disconnected, :id, :manager
@@ -157,12 +158,13 @@ module Transports
     def setCloseTimeout
       if @closeTimeout.nil?
 
-        @closeTimeout = EventMachine::Timer.new(@manager.get('close timeout') * 1000) { | x |
+        @closeTimeout = setTimeout(@manager.get('close timeout') * 1000) do
           log.debug 'fired close timeout for client'
           @closeTimeout = nil
           doEnd 'close timeout'
-        }
+        end
       end
+
       log.debug 'set close timeout for client'
     end
 
@@ -178,11 +180,12 @@ module Transports
     def setHeartbeatTimeout
       if @heartbeatTimeout.nil?
 
-        @heartbeatTimeout = EventMachine::Timer.new(@manager.settings('heartbeat timeout') * 1000) { | x |
+        @heartbeatTimeout = setTimeout(@manager.settings('heartbeat timeout') * 1000) do
           log.debug 'fired heartbeat timeout for client'
           @heartbeatTimeout = nil
           doEnd 'heartbeat timeout'
-        }
+        end
+
         log.debug 'set heartbeat timeout for client'
       end
     end
@@ -197,11 +200,12 @@ module Transports
 
     def setHeartbeatInterval
       if @heartbeatInterval.nil?
-        @heartbeatInterval = EventMachine::Timer.new(@manager.settings('heartbeat interval') * 1000) { | x |
+        @heartbeatInterval = setTimeout(@manager.settings('heartbeat interval') * 1000) do
           heartbeat
           @heartbeatInterval = nil
-        }
+        end
       end
+
       log.debug('set heartbeat interval for client')
     end
 
