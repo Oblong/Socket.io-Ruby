@@ -7,6 +7,9 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
+# rb only
+$protocol = 1
+
 # Manager constructor.
 #
 # @param [HTTPServer] server
@@ -87,8 +90,6 @@ class Manager
     #rb: only
     doStatic
   end
-
-  def handshakeData; end
 
   # store accessor shortcut.
   # 
@@ -187,7 +188,7 @@ class Manager
       'dispatch',
       'disconnect'
     ].each { | which |
-      store.subscribe(which) { | *args | self.send("on#{which.capitalize}", args) }
+      store.subscribe(which) { | *args | self.method("on#{which.capitalize}").call(*args) }
     }
   end
 
@@ -215,7 +216,7 @@ class Manager
 
       @closedA.reject! { | x | x == id }
       
-      @store.unsubcribe("dispatch:#{@id}") { | x | 
+      store.unsubcribe("dispatch:#{@id}") { | x | 
         @closed.delete id 
       }
     end
@@ -277,7 +278,7 @@ class Manager
     @closed[id] = []
     @closedA << id
 
-    @store.subscribe("dispatch:#{@id}") { | packet, volatile |
+    store.subscribe("dispatch:#{@id}") { | packet, volatile |
       onClientDispatch(id, packet) if not volatile
     }
   end
@@ -336,13 +337,13 @@ class Manager
       }
     end
 
-    @store.destroyClient id, get('client store expiration')
+    store.destroyClient id, get('client store expiration')
 
-    @store.unsubscribe("dispatch:#{@id}")
+    store.unsubscribe("dispatch:#{@id}")
 
     if local
-      @store.unsubscribe("message:#{@id}")
-      @store.unsubscribe("disoconnect:#{@id}")
+      store.unsubscribe("message:#{@id}")
+      store.unsubscribe("disoconnect:#{@id}")
     end
   end
 
@@ -373,7 +374,7 @@ class Manager
       return
     end
  
-    if data[:protocol] != protocol
+    if data[:protocol] != $protocol
       res.writeHead 500
       res.end 'Protocol version not supported.'
  
@@ -420,13 +421,12 @@ class Manager
   # @api private
   def handleClient data, req
     socket = req[:socket]
-    store = @store
  
     if data[:query].respond_to? :disconnect
       if @transports[data[:id]] && @transports[data[:id]].open
         @transports[data[:id]].onForcedDisconnect
       else
-        @store.publish "disconnect-force:#{data[:id]}"
+        store.publish "disconnect-force:#{data[:id]}"
       end 
  
       return
@@ -448,13 +448,13 @@ class Manager
         end
  
         onOpen(data[:id])
-        @store.publish('open', data[:id])
+        store.publish('open', data[:id])
         @transports[data[:id]] = transport
       end
  
       unless @connected[data[:id]]
         onConnect data[:id]
-        @store.publish 'connect', data[:id]
+        store.publish 'connect', data[:id]
  
         #initialize the socket for all namespaces
         @namespaces.each { | which |
@@ -464,11 +464,11 @@ class Manager
           which.handlePacket(data[:id], :type => 'connect')
         }
  
-        @store.subscribe("message:#{data[:id]}") { | packet | 
+        store.subscribe("message:#{data[:id]}") { | packet | 
           onClientMessage(data[:id], packet)
         }
  
-        @store.subscribe("disconnect:#{data[:id]}") { |reason| 
+        store.subscribe("disconnect:#{data[:id]}") { |reason| 
           onClientDisconnect(data[:id], reason)
         }
       end
@@ -617,7 +617,7 @@ class Manager
       end
  
       if authorized
-        id = generateId
+        id = generateID
         hs = [ id, 
               get('heartbeat timeout') || '',
               get('close timeout') || '',
@@ -631,10 +631,10 @@ class Manager
           res.writeHead 200
         end 
  
-        res.end hs
+        res.doEnd hs
  
         onHandshake id, newData || handshakeData
-        @store.publish 'handshake', id, newData || handshakeData
+        store.publish 'handshake', id, newData || handshakeData
  
         log.info 'handshake authorized', id
       else 
@@ -648,18 +648,18 @@ class Manager
   #
   # @api private
   def handshakeData data
-    connection = data[:request][:connection]
+    connection = data[:request].connection
     connectionAddress = {}
  
-    if connection[:remoteAddress]
+    if connection['remoteAddress']
       connectionAddress = {
-        :address => connection[:remoteAddress],
-        :port => connection[:remotePort]
+        :address => connection['remoteAddress'],
+        :port => connection['remotePort']
       } 
-    elsif connection[:socket] and connection[:socket][:remoteAddress]
+    elsif connection[:socket] and connection[:socket]['remoteAddress']
       connectionAddress = {
-        :address => connection[:socket][:remoteAddress],
-        :port => connection[:socket][:remotePort]
+        :address => connection[:socket]['remoteAddress'],
+        :port => connection[:socket]['remotePort']
       }
     end
  
@@ -667,8 +667,8 @@ class Manager
       :headers => data[:headers],
       :address => connectionAddress,
       :time => DateTime.now.to_s,
-      :xdomain => data.request.headers.origin ? true : false,
-      :secure => data[:request][:connection][:secure]
+      :xdomain => data[:request].headers[:origin] ? true : false,
+      :secure => data[:request].connection['secure']
     }
   end
 
@@ -676,7 +676,7 @@ class Manager
   #
   # @api private
   def verifyOrigin request
-    origin = request[:header][:origin]
+    origin = request.headers[:origin]
     origins = get('origins')
     
     origin = '*' if origin.nil? 
@@ -706,7 +706,7 @@ class Manager
   #
   # @param Object client request data
   # @api private
-  def authorize data, fn
+  def authorize(data, &fn)
     if get('authorization')
       
       get('authorization').call(data, lambda { | err, authorized |
@@ -715,7 +715,7 @@ class Manager
       })
     else
       log.debug 'client authorized'
-      fn nil, true
+      fn.call nil, true
     end
     self
   end
@@ -724,8 +724,8 @@ class Manager
   #
   # @api private
   def transports data
-    (get 'transports').accept lambda { | which |
-      which and ( !which.checkClient or which.checkClient data )
+    (get 'transports').select { | which |
+      which # and ( !which.checkClient or which.checkClient data )
     }
   end
 

@@ -1,5 +1,6 @@
 require 'EventEmitter'
 require 'thread'
+# require 'yaml'
 
 Thread.abort_on_exception = true
 #
@@ -53,12 +54,11 @@ module HTTP
     def call env
       matched = false 
       @paths.each do | path |
-        matched |= (env['REQUEST_URI'][0..path.length - 1] == path)
+        matched |= (env['PATH_INFO'][0..path.length - 1] == path)
       end
 
       unless matched
-        return @app.call(env) if @app.respond_to? :call
-        return
+        return @app.call(env) if @app and @app.respond_to? :call
       end
 
 
@@ -76,7 +76,15 @@ module HTTP
         'method' => env['REQUEST_METHOD'],
         'url' => env['REQUEST_URI'],
         'headers' => pairwise,
-        'threadMap' => @threadMap
+        'threadMap' => @threadMap,
+        'socket' => false,
+        'connection' => {
+          'remoteAddress' => env['REMOTE_ADDR'],
+
+          # These are faked, coerced values
+          'secure' => false,
+          'remotePort' => '9292'
+        }
       })
 
       # We have to make sure that this is called after the app thread starts
@@ -216,10 +224,7 @@ module HTTP
         @headerMap.delete 'Content-Type'
       end
 
-
       @headerFull = [ @statusCode, @headerMap ]
-
-      $stderr.puts YAML.dump(@headerFull)
 
       if @threadMap['response.header'].status.class == String 
         Thread.kill @threadMap['response.header'] 
