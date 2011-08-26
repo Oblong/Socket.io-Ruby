@@ -13,6 +13,7 @@ require 'uuid'
 require 'cgi'
 require 'digest/md5'
 require 'uri'
+require 'eventmachine'
 
 ROOT = File.expand_path(File.dirname(__FILE__))
 
@@ -30,6 +31,15 @@ autoload :FileSession, "#{ROOT}/store/FileSession"
 autoload :Memory, "#{ROOT}/store/memory"
 autoload :Socket, "#{ROOT}/socket"
 
-require "#{ROOT}/transport"
+module Transports
+  autoload :Base, "#{ROOT}/transports/base"
+  autoload :FlashSocket, "#{ROOT}/transports/flashsocket"
+  autoload :HTTPTransport, "#{ROOT}/transports/http"
+  autoload :HTMLFile, "#{ROOT}/transports/htmlfile"
+  autoload :HttpPolling, "#{ROOT}/transports/http-polling"
+  autoload :JsonpPolling, "#{ROOT}/transports/jsonp-polling"
+  autoload :WebSocket, "#{ROOT}/transports/websocket"
+  autoload :XhrPolling, "#{ROOT}/transports/xhr-polling"
+end
 
 Manager.new HTTP::server

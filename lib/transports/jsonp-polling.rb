@@ -7,8 +7,8 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-module Transport
-  class JsonpPolling < Transport::HttpPolling
+module Transports
+  class JsonpPolling < Transports::HttpPolling
 
     def initialize(msg, data, req)
       #rb make sure this stays at the top because

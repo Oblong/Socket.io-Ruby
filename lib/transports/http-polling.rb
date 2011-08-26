@@ -9,8 +9,8 @@
 
 # This is basically a shell for the http driven transports of
 # xhr-polling
-module Tranport
-  class HttpPolling < Transport::HTTPTranport
+module Transports
+  class HttpPolling < Transports::HTTPTransport
     def initialize(msg, data, req)
       super
       @name = 'httppolling'

@@ -1,3 +1,7 @@
+# node.js like HTTP module for ruby
+# Copyright(c) 2011 Oblong <chris@oblong.com>
+# MIT Licensed
+
 require 'EventEmitter'
 require 'thread'
 # require 'yaml'
@@ -7,6 +11,7 @@ Thread.abort_on_exception = true
 # Implemented based on documentation from http://nodejs.org/docs/v0.5.0/api/http.html
 # Quotations are used wherein relevant
 #
+
 module HTTP
   attr_reader :agent
 
@@ -143,8 +148,17 @@ module HTTP
 
     attr_accessor :method, :url, :headers, :trailers, :httpVersion, :connection, :threadMap, :res
 
+    def [](key)
+      @data[key]
+    end
+
+    def []=(key, value)
+      @data[key] = value
+    end
+
     def initialize(options = {})
       @trailers = nil
+      @data = {}
       @connection = nil
       @encoding = nil
 
@@ -173,6 +187,7 @@ module HTTP
 
     def initialize(options = {})
       @headerFull = ''
+      @data = {}
       @headerMap = {
         'Content-Type' => 'text/plain'
       }
@@ -182,6 +197,14 @@ module HTTP
       options.each { | key, value |
         instance_variable_set("@#{key}", value)
       }
+    end
+
+    def [](key)
+      @data[key]
+    end
+
+    def []=(key, value)
+      @data[key] = value
     end
 
     def writeContinue

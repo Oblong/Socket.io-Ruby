@@ -7,9 +7,9 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-module Transport
-  class XhrPolling < Transport::HttpPolling
-    def initialize(msg, data, req)
+module Transports
+  class XhrPolling < Transports::HttpPolling
+    def initialize(mng, data, req)
       super
       @name = 'xhr-polling'
     end

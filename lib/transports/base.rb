@@ -7,15 +7,44 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-module Transport
-  class Transport
+module Transports
+  class Base
     attr_accessor :open, :discarded, :id
     attr_accessor :name, :postEncoded
+    attr_accessor :disconnected, :id, :manager
+
+    # Transport constructor.
+    #
+    # @api public
+    def initialize(mng, data, req = nil)
+      @manager = mng
+      @id = data[:id]
+      @disconnected = false
+      @drained = true
+      handleRequest req unless req.nil?
+    end
+
+    # Access the logger.
+    #
+    # @api public
+    def log
+      @manager.log
+    end
+
+    # Access the store.
+    #
+    # @api public
+    def store
+      @manager.store
+    end
 
     def packet obj
       write parser.encodePacket obj
     end
 
+    # Handles a request when it's set.
+    #
+    # @api private
     def handleRequest req
       log.debug 'setting request', req.method, req.url
       @req = req
@@ -30,6 +59,9 @@ module Transport
       end
     end
 
+    # Sets transport handlers
+    #
+    # @api private
     def setHandlers
       # we need to do this in a pub/sub way since the client can POST the message
       # over a different socket (ie: different Transport instance)
@@ -46,6 +78,9 @@ module Transport
 
     end
 
+    # Removes transport handlers
+    #
+    # @api private
     def clearHandlers
       if @handlersSet
         ['disconnect-force', 'heartbeat-clear', 'dispatch'].each { | which |
@@ -61,10 +96,23 @@ module Transport
 
     def onSocketConnect; end
 
+    # Called when the connection dies
+    #
+    # @api private
+    def onSocketEnd
+      doEnd 'socket end'
+    end
+
+    # Called when the connection dies
+    #
+    # @api private
     def onSocketClose err
       doEnd err
     end
 
+    # Called when the connection has an error.
+    #
+    # @api private
     def onSocketError err
       if @open
         @socket.destroy
@@ -74,6 +122,9 @@ module Transport
       log.info 'socket error'
     end
 
+    # Called when the connection is drained.
+    #
+    # @api private
     def onSocketDrain
       @drained = true
     end

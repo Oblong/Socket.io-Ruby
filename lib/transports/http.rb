@@ -7,8 +7,8 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-module Transport
-  class HTTPTransport < Transport::Transport
+module Transports
+  class HTTPTransport < Transports::Base
 
     #rb only
     attr_accessor :postEncoded

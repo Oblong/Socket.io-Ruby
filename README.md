@@ -20,6 +20,7 @@ You'll need a Ruby version of the
  * cgi
  * rack
  * json
+ * eventmachine
 
 ## Notes
 

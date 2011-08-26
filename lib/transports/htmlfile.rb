@@ -7,8 +7,8 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-module Transport
-  class HTMLFile < Transport::HTTPTransport
+module Transports
+  class HTMLFile < Transports::HTTPTransport
     def initialize msg, data, req
       super
       @name = 'htmlfile'

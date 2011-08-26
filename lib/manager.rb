@@ -43,7 +43,16 @@ class Manager
       'logger' => SocketIO::Logger.new,
       'heartbeats' => true,
       'resource' => '/socket.io',
-      'transports' => [ 'WebSocket' 'HTMLFile' 'XhrPolling' 'JsonpPolling' ],
+
+      # rb only :: this is a map between what the client side is 
+      # trying to find and the crippled limitationg of Ruby's 
+      # naming convention
+      'transports' => { 
+        'WebSocket' => 'websocket', 
+        'HTMLFile' => 'htmlfile',
+        'XhrPolling' => 'xhr-polling',
+        'JsonpPolling' => 'jsonp-polling'
+      },
       'authorization' => false,
       'log level' => 3,
       'close timeout' => 25,
@@ -81,9 +90,11 @@ class Manager
     }
 
 =end
-    transports.each { | trans | 
+    @settings['transports'].each_key { | trans | 
       if eval("Transports::#{trans}").class == Module 
-        eval("Transports::#{trans}").init self
+        if eval("Transports::#{trans}").respond_to? :init
+          eval("Transports::#{trans}").init self
+        end
       end
     }
 
@@ -413,7 +424,7 @@ class Manager
   # Handles a normal handshaken HTTP request (eg: long-polling)
   # 
   # @api private
-  def handleHTTPRequest data, req, ret
+  def handleHTTPRequest data, req, res
     req[res] = res
     handleClient data, req
   end
@@ -434,13 +445,13 @@ class Manager
       return
     end 
  
-    unless get('transports').index(data.transport)
-      log.warn 'unknown transport: "' + data.transport + '"'
+    unless get('transports').index(data[:transport])
+      log.warn 'unknown transport: "' + data[:transport] + '"'
       req[:connection].doEnd
       return
     end 
  
-    transport = @transports[data[:transport]].new data, req
+    transport = eval("Transports::#{transportLookup data[:transport]}").new self, data, req
  
     if @handshaken[data[:id]]
       if transport.open
@@ -584,7 +595,7 @@ class Manager
     # get the some MT sequence on a per thread/fork
     # basis per instance.  Because of this, we are
     # using a UUID generator
-    UUID.generate
+    UUID.generate.hex
   end
 
   # Handles a handshake request.
@@ -728,12 +739,14 @@ class Manager
   #
   # @api private
   def transports data
-=begin
-    (get 'transports').select { | which |
+    (get 'transports').each_value.select { | which |
       which # and ( !which.checkClient or which.checkClient data )
     }
-=end
-    get 'transports'
+  end
+
+  # rb only
+  def transportLookup which
+    (get 'transports').invert[which]
   end
 
   # Checks whether a request is a socket.io one.
