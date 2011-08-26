@@ -80,10 +80,12 @@ class Manager
       clearInterval(self.gc)
     }
 
-    transports.each { | trans | 
-      eval(trans).init if eval(trans).responds_to? :init
-    }
 =end
+    transports.each { | trans | 
+      if eval("Transports::#{trans}").class == Module 
+        eval("Transports::#{trans}").init self
+      end
+    }
 
     log.info('socket.io started')
     
@@ -624,6 +626,8 @@ class Manager
               transports(data).join(',')
             ].join(':')
  
+        $stderr.puts YAML.dump(transports(data))
+        $stderr.puts YAML.dump(hs)
         if data[:query][:jsonp]
           hs = 'io.j[' + data[:query][:jsonp] + '](' + JSON.stringify(hs) + ');'
           res.writeHead(200, { 'Content-Type' => 'application/javascript' })
@@ -724,9 +728,12 @@ class Manager
   #
   # @api private
   def transports data
+=begin
     (get 'transports').select { | which |
       which # and ( !which.checkClient or which.checkClient data )
     }
+=end
+    get 'transports'
   end
 
   # Checks whether a request is a socket.io one.

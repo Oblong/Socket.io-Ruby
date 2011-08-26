@@ -1,9 +1,21 @@
+# socket.io-ruby
+# Copyright(c) 2011 Oblong <chris@oblong.com>
+# MIT Licensed
+#
+# Derived from
+# socket.io-node
+# Copyright(c) 2011 LearnBoost <dev@learnboost.com>
+# MIT Licensed
+
 require 'compat/FlashWrap'
 module Transports
-  class FlashSocket < Transports::WebSocket
-    def initialize(mng, data, req)
-      super
-      @name = 'flashsocket'
+  module FlashSocket
+    class << self
+      include Transports::WebSocket
+        def initialize(mng, data, req)
+        super
+        @name = 'flashsocket'
+      end
     end
 
     def init manager
