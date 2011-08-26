@@ -8,11 +8,21 @@
 # MIT Licensed
 
 class Store < EventEmitter
+  # Store interface
+  # 
+  # @api public
   def initialize(options = nil) 
     @options = options
     @clients = {}
   end
 
+  # Inherit from EventEmitter.
+  include EventEmitter
+
+  # Initializes a client store
+  # 
+  # @param [String] id
+  # @api public
   def client id
     unless @clients[id]
       @clients[id] = Store::Client.new self, id
@@ -21,6 +31,11 @@ class Store < EventEmitter
     @clients[id]
   end
 
+  # Destroys a client
+  # 
+  # @api [String] sid
+  # @param [FixNum] number of seconds to expire client data
+  # @api private
   def destroyClient id, expiration
     if @clients[id]
       @clients[id].destroy expiration
@@ -28,16 +43,24 @@ class Store < EventEmitter
     end
   end
 
+  # Destroys the store
+  # 
+  # @param [Number] number of seconds to expire client data
+  # @api private
   def destroy clientExpiration
     @clients.each { | key, value |
       destroyClient value, clientExpiration
     }
+
     @clients = {}
   end
 
 end
 
 module Store
+  # Client.
+  # 
+  # @api public
   class Client
     attr_accessor store, id
 

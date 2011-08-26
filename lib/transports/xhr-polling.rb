@@ -8,12 +8,24 @@
 # MIT Licensed
 
 module Transports
+  # Inherits from Transport.
   class XhrPolling < Transports::HttpPolling
+
+    # Ajax polling transport.
+    # 
+    # @api public
     def initialize(mng, data, req)
       super
+
+      # Transport name
+      #
+      # @api public
       @name = 'xhr-polling'
     end
 
+    # Frames data prior to write.
+    # 
+    # @api private
     def doWrite data
       super
 
@@ -27,14 +39,17 @@ module Transports
 
       unless origin.nil?
         # https://developer.mozilla.org/En/HTTP_Access_Control
-        headers['Access-Control-Allow-Origin'] = '*';
+        headers['Access-Control-Allow-Origin'] = '*'
 
         unless @req.headers['cookie'].nil?
           headers['Access-Control-Allow-Credentials'] = 'true'
         end
       end
 
-      [200, headers, data]
+      response.writeHead 200, headers
+      response.write data
+
+      log.debug(@name + ' writing', data);
     end
   end
 end

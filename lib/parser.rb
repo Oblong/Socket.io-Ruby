@@ -7,9 +7,6 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-# snagged from socket.io-node tag v0.7.6
-# core parts intact, converted to ruby-style
-
 module Parser
   @regexp = /^([^:]+):([0-9]+)?(\+)?:([^:]+)?:?(.*)?$/
 
@@ -22,6 +19,11 @@ module Parser
     :reasons => [ 'transport not supported' , 'client not handshaken' , 'unauthorized' ],
     :advice => [ 'reconnect' ]
   }
+
+  class << self
+    def initialize; end
+    include EventEmitter
+  end
 
   def encodePacket packet
     type = packets.index(packet.type)

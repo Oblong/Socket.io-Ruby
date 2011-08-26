@@ -10,16 +10,20 @@
 module Transports
 
   module WebSocket
+    # Inherits from Transport.
     class << self < Transports::Base
 
+      # HTTP interface constructor. Interface compatible with all transports that
+      # depend on request-response cycles.
       def initialize(msg, data, req)
         super
         @parser = Parser.new
 
         @parser.on('data') { | packet |
           log.debug packet
-          # NOTE: I Don't know how this would actually work...
-          onMessage Parser.decodePacket(packet)
+
+          # rb NOTE: I Don't know how this would actually work...
+          onMessage Parser::decodePacket(packet)
         }
 
         @parser.on('error') do
@@ -31,6 +35,9 @@ module Transports
         end
       end
 
+      # Called when the socket connects.
+      # 
+      # @api private
       def onSocketConnect
         @socket.setNoDelay true
 
@@ -118,6 +125,9 @@ module Transports
         }
       end
 
+      # Writes to the socket.
+      #
+      # @api private
       def write data
         if @open
           @drained = false
@@ -138,12 +148,18 @@ module Transports
         end
       end
 
+      # Flushes the internal buffer
+      # 
+      # @api private
       def flush
         @buffered.each { | data |
           write(data)
         }
       end
 
+      # Finishes the handshake.
+      #
+      # @api private
       def proveReception headers
         k1 = @req.headers['sec-websocket-key1']
         k2 = @req.headers['sec-websocket-key2']
@@ -182,12 +198,18 @@ module Transports
         true
       end
 
+      # Writes a payload.
+      # 
+      # @api private
       def payload messageList
         messageList.each { | message |
           write(message)
         }
       end
 
+      # Closes the connection.
+      #
+      # @api private
       def doClose
         @socket.doEnd
       end
@@ -197,16 +219,28 @@ module Transports
     class Parser
       attr_accessor :buffer
 
+      # WebSocket parser
+      #
+      # @api public
       def initialize
         @buffer = ''
         @i = 0
       end
 
+      # Inherits from EventEmitter.
+      include EventEmitter
+
+      # Adds data to the buffer.
+      #
+      # @api public
       def add data
         @buffer << data
         parse
       end
 
+      # Parses the buffer.
+      # 
+      # @api private
       def parse
         (@i..@buffer.length).each { | i |
           #rb 1.8 support
@@ -236,7 +270,12 @@ module Transports
         }
       end
 
+      # Handles an error
+      # 
+      # @api private
       def doError reason
+        @buffer = 0
+        @i = 0
         emit 'error', reason
       end
     end
