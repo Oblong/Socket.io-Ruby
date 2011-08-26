@@ -17,6 +17,10 @@ module Transports
     # @api public.
     def initialize(mng, data, req)
       super
+
+      # Transport name
+      # 
+      # @api public
       @name = 'httppolling'
     end
 
@@ -28,13 +32,14 @@ module Transports
     # @api private
     def handleRequest req
       if req.method == 'GET'
-        puts @manager.get 'polling duration' 
 
         @timer = setTimeout(@manager.get('polling duration') * 1000) do 
-          packet({
-            :type => :noop
-          })
+          packet :type => 'noop'
+
+          log.debug(@name + ' closed due to exceeded duration')
         end
+
+        log.debug('setting poll timeout')
       end
     end
 

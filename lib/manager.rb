@@ -156,7 +156,7 @@ class Manager
   #
   # @api public
   def enabled key
-    @settings[key]
+    @settings[key] != false
   end
 
   # Checks if a setting is disabled
@@ -171,9 +171,9 @@ class Manager
   # @api public
   def configure env, fn
     if env.class == Method
-      env.call
+      env.call self
     elsif env == process[:env].NODEENV
-      fn.call
+      fn.call self
     end
 
     self
@@ -248,7 +248,7 @@ class Manager
       @rooms.each_index { | i |
         id = @rooms[room][i]
         
-        unless exceptions.index[id]
+        unless exceptions.index(id)
           if @transports[id] and @transports[id].open
             @transports[id].onDispatch packet, volatile
           elsif not volatile
@@ -416,7 +416,7 @@ class Manager
       return
     end
 
-    req[:head] = head
+    req['head'] = head
 
     handleClient data, req
   end
@@ -469,6 +469,12 @@ class Manager
         onConnect data[:id]
         store.publish 'connect', data[:id]
  
+
+        # flag as used
+        handshaken.delete issued
+        onHandshake data[:id], handshaken
+        store.publish 'handshake', data[:id], handshaken
+
         #initialize the socket for all namespaces
         @namespaces.each { | which |
           socket = which.socket data[:id], true
@@ -495,6 +501,9 @@ class Manager
  
   end
 
+  # Dictionary for static file serving
+  # 
+  # @api public
   def doStatic
     base = File.dirname(__FILE__).split('/')[0..-2].join('/') + '/node_modules/socket.io-client/dist'
 
@@ -519,7 +528,7 @@ class Manager
     }
   end
 
-  # Handles a normal handshaken HTTP request (eg: long-polling)
+  # Serves the client.
   #
   # @api private
   def handleClientRequest req, res, data
@@ -536,6 +545,9 @@ class Manager
     location = _static[:paths][file]
     cache = _static[:cache][file]
 
+    # Writes a response, safely
+    # 
+    # @api private
     def write(status, headers = nil, content = nil, encoding = 'utf8')
       @res.writeHead status, headers || nil
       @res.doEnd content || '', encoding || nil
@@ -682,8 +694,11 @@ class Manager
       :headers => data[:headers],
       :address => connectionAddress,
       :time => DateTime.now.to_s,
+      :query => data[:query],
+      :url => data[:request].url,
       :xdomain => data[:request].headers[:origin] ? true : false,
-      :secure => data[:request].connection['secure']
+      :secure => data[:request].connection['secure'],
+      :issued => Time.new.to_f
     }
   end
 
