@@ -46,8 +46,8 @@ module Transports
         end
       end
 
-      response.writeHead 200, headers
-      response.write data
+      @response.writeHead 200, headers
+      @response.write data
 
       log.debug(@name + ' writing', data);
     end

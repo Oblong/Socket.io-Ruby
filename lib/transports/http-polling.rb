@@ -31,6 +31,8 @@ module Transports
     # 
     # @api private
     def handleRequest req
+      super
+
       if req.method == 'GET'
 
         @timer = setTimeout(@manager.get('polling duration') * 1000) do 
@@ -66,14 +68,14 @@ module Transports
     # doWrite to clear poll timeout
     #
     # @api private
-    def doWrite
+    def doWrite(data = nil)
       clearPollTimeout
     end
     
     # Performs a write.
     #
     # @api private.
-    def write(data, close)
+    def write(data, close = nil)
       doWrite data
       @response.doEnd
       onClose

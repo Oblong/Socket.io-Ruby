@@ -16,26 +16,35 @@ module Parser
       'json',       'event',   'ack',       'error', 
       'noop'
     ],
-    :reasons => [ 'transport not supported' , 'client not handshaken' , 'unauthorized' ],
-    :advice => [ 'reconnect' ]
   }
+
+  @@reasons = [ 'transport not supported' , 'client not handshaken' , 'unauthorized' ]
+  @@advice = [ 'reconnect' ]
 
   class << self
     def initialize; end
     include EventEmitter
   end
 
-  def encodePacket packet
-    type = packets.index(packet.type)
-    id = packet.id || ''
-    endpoint = packet.endpoint || ''
-    ack = packet.ack
+  def self.encodePacket packet
+    type = packet.index(packet[:type])
+    id = packet[:id] || ''
+    endpoint = packet[:endpoint] ||  ''
+    ack = packet[:ack]
     data = nil
 
-    case packet.type
+    case packet[:type]
       when 'error'
-        reason = packet.reason ? reasons.index(packet.reason) : ''
-        adv = packet.advice ? advice.index(packet.advice) : ''
+        reason = packet[:reason] ? @@reasons.index(packet[:reason]) : ''
+        adv = packet[:advice] ? @@advice.index(packet[:advice]) : ''
+
+        if reason 
+          reason = @@reasons[reason]
+        end
+
+        if adv
+          adv = @@advice[adv]
+        end
 
         if (reason != '' || adv != '')
           data = reason + (adv != '' ? ('+' + adv) : '')
@@ -178,7 +187,7 @@ module Parser
       ret = []
 
       data[1..-1].split('\ufffd').each { | payload |
-        ret << Parser::decodePacket payload
+        ret << decodePacket(payload)
       }
 
       ret

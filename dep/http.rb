@@ -32,6 +32,14 @@ module HTTP
 
   @@serverInstance = Server.new
 
+  #
+  # We need
+  # end, close, error, drain
+  class Socket
+    include EventEmitter
+    def initialize; end
+  end
+
   class FromRack
     def initialize(app, options = {})
       @app = app
@@ -53,7 +61,10 @@ module HTTP
         end
       } 
 
+      @request.socket.emit('drain')
+      @request.socket.emit('end')
       HTTP::server.emit('close')
+      @request.socket.emit('close')
     end
 
     def call env
@@ -82,7 +93,7 @@ module HTTP
         'url' => env['REQUEST_URI'],
         'headers' => pairwise,
         'threadMap' => @threadMap,
-        'socket' => false,
+        'socket' => Socket.new,
         'connection' => {
           'remoteAddress' => env['REMOTE_ADDR'],
 
@@ -146,7 +157,7 @@ module HTTP
   class ServerRequest
     include EventEmitter
 
-    attr_accessor :method, :url, :headers, :trailers, :httpVersion, :connection, :threadMap, :res
+    attr_accessor :method, :url, :headers, :trailers, :httpVersion, :connection, :threadMap, :res, :socket
 
     def [](key)
       @data[key]

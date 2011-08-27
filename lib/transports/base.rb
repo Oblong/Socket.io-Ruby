@@ -66,14 +66,31 @@ module Transports
     def setHandlers
       # we need to do this in a pub/sub way since the client can POST the message
       # over a different socket (ie: different Transport instance)
-      @store.on('heartbeat-clear:' + @id, methods(:onHeartbeatClear))
-      @store.on('disconnect-force:' + @id, methods(:onForceDisconnect))
-      @store.on('dispatch:' + @id, methods(:onDispatch))
+      store.on('heartbeat-clear:' + @id) do 
+        onHeartbeatClear
+      end
+      store.on('disconnect-force:' + @id) do
+        onForceDisconnect
+      end
+      store.on('dispatch:' + @id) do 
+        onDispatch
+      end
 
-      @socket.on('end', methods(:doEnd))
-      ['close', 'error', 'drain'].each { | which |
-        @socket.on(which, methods(which))
-      }
+      @socket.on('end') do
+        doEnd
+      end
+
+      @socket.on('close') do
+        close
+      end
+
+      @socket.on('error') do
+        error
+      end
+
+      @socket.on('drain') do
+        drain
+      end
 
       @handlersSet = true
 
@@ -85,12 +102,12 @@ module Transports
     def clearHandlers
       if @handlersSet
         ['disconnect-force', 'heartbeat-clear', 'dispatch'].each { | which |
-          @store.unsubscribe("#{which}:#{@id}")
+          store.unsubscribe("#{which}:#{@id}")
         }
 
-        @socket.removeListener('end', methods(:doEnd))
+        @socket.removeListener('end', method(:doEnd))
         ['close', 'error', 'drain'].each { | which |
-          @socket.removeListener(which, methods(which))
+          @socket.removeListener(which, method(which))
         }
       end
     end
@@ -219,7 +236,7 @@ module Transports
       if @open
         log.debug 'emitting heartbeat for client'
 
-        packet :type => :heartbeat 
+        packet :type => 'heartbeat'
 
         setHeartbeatTimeout
       end
@@ -234,7 +251,7 @@ module Transports
         if (current && current.open)
           current.onHeartbeatClear
         else
-          @store.publish "heartbeat-clear:#{@id}"
+          @store.publish 'heartbeat-clear:' + @id
         end
       else 
         if 'disconnect' == packet[:type] and packet[:endpoint] == ''
@@ -243,7 +260,7 @@ module Transports
           if current
             current.onForcedDisconnect
           else
-            @store.publish "disconnect-force:#{@id}"
+            @store.publish 'disconnect-force:' + @id
           end
 
           return
@@ -262,7 +279,7 @@ module Transports
             current.onDispatch ack
           else
             @manager.onClientDispatch @id, ack
-            @store.publish "dispatch:#{@id}", ack
+            @store.publish 'dispatch:' + @id, ack
           end 
         end
 
@@ -270,7 +287,7 @@ module Transports
         if current
           @manager.onClientMessage @id, packet
         else
-          @store.publish "message:#{@id}", packet
+          @store.publish 'message:' + @id, packet
         end
       end
     end
@@ -283,11 +300,17 @@ module Transports
       end
     end
 
+    # Finishes the connection and makes sure client doesn't reopen
+    #
+    # @api private
     def disconnect reason
       packet :type => 'disconnect'
       doEnd reason
     end
 
+    # Closes the connection.
+    #
+    # @api private
     def close
       if open
         doClose
@@ -295,6 +318,9 @@ module Transports
       end
     end
 
+    # Called upon a connection close.
+    #
+    # @api private
     def onClose
       if open
         setCloseTimeout
@@ -305,18 +331,30 @@ module Transports
       end
     end
 
+    # Cleans up the connection, considers the client disconnected.
+    # 
+    # @api private
     def doEnd reason
-      close
-      clearTimeouts
-      @disconnected = true
+      unless @disconnected
+        log.info('transport end')
 
-      if local
-        @manager.onClientDisconnect @id, reason, true
-      else 
-        @store.publish 'disconnect:' + @id, reason
-      end 
+        local = @manager.transports[@id]
+
+        close
+        clearTimeouts
+        @disconnected = true
+
+        if local
+          @manager.onClientDisconnect @id, reason, true
+        else 
+          @store.publish 'disconnect:' + @id, reason
+        end 
+      end
     end
 
+    # Signals that the transport should pause and buffer data.
+    #
+    # @api public
     def discard 
       log.debug 'discarding transport'
       @discarded = true
@@ -324,6 +362,11 @@ module Transports
       clearHandlers
     end
 
+    # Writes an error packet with the specified reason and advice.
+    #
+    # @param [FixNum] advice
+    # @param [FixNum] reason
+    # @api public
     def doError(reason, advice)
       packet({
         :type => 'error',
@@ -335,10 +378,16 @@ module Transports
       doEnd 'error'
     end
 
+    # Write a packet.
+    #
+    # @api private
     def packet obj
-      write Parser.encodePacket obj
+      write Parser::encodePacket(obj)
     end
 
+    # Writes a volatile message.
+    #
+    # @api private
     def writeVolatile msg
       # don't think this is needed
     end

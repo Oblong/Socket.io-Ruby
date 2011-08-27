@@ -493,7 +493,7 @@ class Manager
       end
     else
       if transport.open
-        tranport.error 'client not handshaken', 'reconnect'
+        transport.doError 'client not handshaken', 'reconnect'
       end
  
       transport.discard
@@ -649,8 +649,6 @@ class Manager
               transports(data).join(',')
             ].join(':')
  
-        $stderr.puts YAML.dump(transports(data))
-        $stderr.puts YAML.dump(hs)
         if data[:query][:jsonp]
           hs = 'io.j[' + data[:query][:jsonp] + '](' + JSON.stringify(hs) + ');'
           res.writeHead(200, { 'Content-Type' => 'application/javascript' })
