@@ -84,7 +84,7 @@ module Transports
     # Override end.
     #
     # @api private
-    def doEnd
+    def doEnd(reason = nil)
       clearPollTimeout
       super # return HTTPTransport.prototype.end.call(this);
     end

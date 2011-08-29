@@ -258,6 +258,11 @@ module HTTP
         @headerMap.delete 'Content-Type'
       end
 
+      # Type casting appears to be important to Rack
+      @headerMap.each { | key, value | 
+        @headerMap[key] = value.to_s
+      }
+
       @headerFull = [ @statusCode, @headerMap ]
 
       if @threadMap['response.header'].status.class == String 

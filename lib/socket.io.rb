@@ -30,7 +30,7 @@ autoload :SocketNamespace, "#{ROOT}/namespace"
 autoload :Manager, "#{ROOT}/manager"
 autoload :Parser, "#{ROOT}/parser"
 
-autoload :Store, "#{ROOT}/store/store"
+autoload :Store, "#{ROOT}/store"
 autoload :FileSession, "#{ROOT}/store/FileSession"
 autoload :Memory, "#{ROOT}/store/memory"
 autoload :Socket, "#{ROOT}/socket"

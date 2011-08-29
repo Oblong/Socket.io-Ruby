@@ -7,7 +7,7 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-class Store < EventEmitter
+class Store
   # Store interface
   # 
   # @api public
@@ -55,19 +55,21 @@ class Store < EventEmitter
     @clients = {}
   end
 
+  alias subscribe on
+  alias publish emit
+  alias unsubscribe removeListener
+
+  def getsession(&block); end
 end
 
-module Store
-  # Client.
-  # 
-  # @api public
-  class Client
-    attr_accessor store, id
+# Client.
+# 
+# @api public
+class Client < Store
+  attr_accessor :store, :id
 
-    def initialize store, id
-      @store = store
-      @id = id
-    end
+  def initialize store, id
+    @store = store
+    @id = id
   end
-
 end

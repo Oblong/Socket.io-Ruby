@@ -18,10 +18,17 @@ module Transports
     #
     # @api public
     def initialize(mng, data, req = nil)
+      # rb only
+      @funMap = {}
+
       @manager = mng
       @id = data[:id]
       @disconnected = false
       @drained = true
+
+      # rb only
+      @response = @req.res unless @res.nil?
+
       handleRequest req unless req.nil?
     end
 
@@ -66,30 +73,32 @@ module Transports
     def setHandlers
       # we need to do this in a pub/sub way since the client can POST the message
       # over a different socket (ie: different Transport instance)
-      store.on('heartbeat-clear:' + @id) do 
+      @funMap['heartbeat-clear'] = store.on('heartbeat-clear:' + @id) do 
         onHeartbeatClear
       end
-      store.on('disconnect-force:' + @id) do
+
+      @funMap['disconnect-force'] = store.on('disconnect-force:' + @id) do
         onForceDisconnect
       end
-      store.on('dispatch:' + @id) do 
+
+      @funMap['dispatch'] = store.on('dispatch:' + @id) do 
         onDispatch
       end
 
-      @socket.on('end') do
+      @funMap['end'] = @socket.on('end') do
         doEnd
       end
 
-      @socket.on('close') do
+      @funMap['close'] = @socket.on('close') do
         close
       end
 
-      @socket.on('error') do
+      @funMap['error'] = @socket.on('error') do
         error
       end
 
-      @socket.on('drain') do
-        drain
+      @funMap['drain'] = @socket.on('drain') do
+        onSocketDrain
       end
 
       @handlersSet = true
@@ -102,12 +111,11 @@ module Transports
     def clearHandlers
       if @handlersSet
         ['disconnect-force', 'heartbeat-clear', 'dispatch'].each { | which |
-          store.unsubscribe("#{which}:#{@id}")
+          store.unsubscribe("#{which}:#{@id}", @funMap[which])
         }
 
-        @socket.removeListener('end', method(:doEnd))
-        ['close', 'error', 'drain'].each { | which |
-          @socket.removeListener(which, method(which))
+        ['end', 'close', 'error', 'drain'].each { | which |
+          @socket.removeListener(which, @funMap[which])
         }
       end
     end
@@ -251,7 +259,7 @@ module Transports
         if (current && current.open)
           current.onHeartbeatClear
         else
-          @store.publish 'heartbeat-clear:' + @id
+          store.publish 'heartbeat-clear:' + @id
         end
       else 
         if 'disconnect' == packet[:type] and packet[:endpoint] == ''
@@ -260,7 +268,7 @@ module Transports
           if current
             current.onForcedDisconnect
           else
-            @store.publish 'disconnect-force:' + @id
+            store.publish 'disconnect-force:' + @id
           end
 
           return
@@ -279,7 +287,7 @@ module Transports
             current.onDispatch ack
           else
             @manager.onClientDispatch @id, ack
-            @store.publish 'dispatch:' + @id, ack
+            store.publish 'dispatch:' + @id, ack
           end 
         end
 
@@ -287,7 +295,7 @@ module Transports
         if current
           @manager.onClientMessage @id, packet
         else
-          @store.publish 'message:' + @id, packet
+          store.publish 'message:' + @id, packet
         end
       end
     end
@@ -327,18 +335,19 @@ module Transports
         clearHandlers
         @open = false
         @manager.onClose @id
-        @store.publish 'close', @id
+        store.publish 'close', @id
       end
     end
 
     # Cleans up the connection, considers the client disconnected.
     # 
     # @api private
-    def doEnd reason
+    def doEnd(reason = nil)
       unless @disconnected
         log.info('transport end')
 
-        local = @manager.transports[@id]
+        # TODO
+        local = true#@manager.transports[@id]
 
         close
         clearTimeouts
@@ -347,7 +356,7 @@ module Transports
         if local
           @manager.onClientDisconnect @id, reason, true
         else 
-          @store.publish 'disconnect:' + @id, reason
+          store.publish 'disconnect:' + @id, reason
         end 
       end
     end

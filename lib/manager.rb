@@ -32,6 +32,9 @@ class Manager
   # }
 
   def initialize(server, options = nil)
+    # rb only
+    @funMap = {}
+
     @server = server
     @namespaces = {}
     @sockets = of('')
@@ -291,9 +294,9 @@ class Manager
     @closed[id] = []
     @closedA << id
 
-    store.subscribe("dispatch:#{@id}") { | packet, volatile |
+    @funMap["dispatch:#{@id}"] = store.subscribe("dispatch:#{@id}") do | packet, volatile |
       onClientDispatch(id, packet) if not volatile
-    }
+    end
   end
 
   # Dispatches a message for a closed client.
@@ -317,9 +320,9 @@ class Manager
   # Fired when a client disconnects (not triggered).
   # 
   # @api private
-  def onClientDisconnect id, reason
+  def onClientDisconnect(id, reason, bool = true)
     @namespaces.each { | name, value |
-      value.handleDisconnect(id, reason) if @roomClients[id][name]
+      value.handleDisconnect(id, reason) if @roomClients[id] and @roomClients[id][name]
     }
 
     onDisconnect id
@@ -334,7 +337,7 @@ class Manager
     @open.delete(id) if @open[id]
     @connected.delete(id) if @connected[id]
 
-    if @transports[id]
+    if @tranports and @transports[id]
       @transports[id].discard
       @transports.delete id
     end
@@ -344,7 +347,7 @@ class Manager
       @closedA.reject! { | x | x == id }
     end
 
-    if @roomClientsp[id]
+    if @roomClients[id]
       @roomClients[id].each { | room, value |
         @rooms.reject! { | x | x == id }
       }
@@ -352,11 +355,11 @@ class Manager
 
     store.destroyClient id, get('client store expiration')
 
-    store.unsubscribe("dispatch:#{@id}")
+    store.unsubscribe('dispatch:' + id, @funMap['dispatch:' + id])
 
     if local
-      store.unsubscribe("message:#{@id}")
-      store.unsubscribe("disoconnect:#{@id}")
+      store.unsubscribe('message:' + id, @funMap['message:' + id])
+      store.unsubscribe('disconnect:' + id, @funMap['disconnect:' + id])
     end
   end
 
@@ -468,7 +471,6 @@ class Manager
       unless @connected[data[:id]]
         onConnect data[:id]
         store.publish 'connect', data[:id]
- 
 
         # flag as used
         handshaken.delete issued
@@ -476,20 +478,20 @@ class Manager
         store.publish 'handshake', data[:id], handshaken
 
         #initialize the socket for all namespaces
-        @namespaces.each { | which |
+        @namespaces.each do | which |
           socket = which.socket data[:id], true
  
           # echo back connect packet and fire connection event
           which.handlePacket(data[:id], :type => 'connect')
-        }
+        end 
  
-        store.subscribe("message:#{data[:id]}") { | packet | 
+        @funMap['message:' + data[:id]] = store.subscribe('message:' + data[:id]) do | packet | 
           onClientMessage(data[:id], packet)
-        }
+        end
  
-        store.subscribe("disconnect:#{data[:id]}") { |reason| 
+        @funMap['disconnect:' + data[:id]] = store.subscribe('disconnect:' + data[:id]) do |reason| 
           onClientDisconnect(data[:id], reason)
-        }
+        end
       end
     else
       if transport.open
@@ -751,7 +753,7 @@ class Manager
   # Retrieves the transports adviced to the user.
   #
   # @api private
-  def transports data
+  def transports(data = nil)
     (get 'transports').each_value.select { | which |
       which # and ( !which.checkClient or which.checkClient data )
     }
