@@ -7,14 +7,16 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
+#TODO v0.8.2
 require 'compat/FlashWrap'
 module Transports
   module FlashSocket
+
     class << self
       include Transports::WebSocket
-        def initialize(mng, data, req)
-        super
+      def initialize(mng, data, req)
         @name = 'flashsocket'
+        super
       end
     end
 

@@ -27,7 +27,7 @@ class Manager
   #  This is ok since we aren't using much data from it anyway
   attr_reader :client
   @@client = {
-    :version => '0.7.9'
+    :version => '0.8.2'
   }
   # }
 
@@ -706,7 +706,7 @@ class Manager
   #
   # @api private
   def verifyOrigin request
-    origin = request.headers[:origin]
+    origin = request.headers[:origin] || request.headers[:referer]
     origins = get('origins')
     
     origin = '*' if origin.nil? 
@@ -717,9 +717,14 @@ class Manager
       begin
         parts = url.parse origin
  
-        return origins.index(parts[:host] + ':' + parts[:port]) || origins.index(parts[:host] + ':*') || origins.index('*:' + parts[:port])
- 
-      rescue; end
+        ok = origins.index(parts[:host] + ':' + parts[:port]) || origins.index(parts[:host] + ':*') || origins.index('*:' + parts[:port])
+        log.warn('illegal origin: ' + origin) if !ok 
+        return ok
+      rescue;
+        log.warn 'error parsing origin'
+      end
+    else
+      log.warn 'origin missing from handshake, yet required by config'
     end
  
     false
