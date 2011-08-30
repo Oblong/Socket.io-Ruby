@@ -79,13 +79,13 @@ class Manager
     @oldListeners = server.listeners('request')
     server.removeAllListeners 'request'
 
-    server.on('request') { |req, res|
+    server.on('request') do |req, res|
       handleRequest req, res
-    }
+    end
 
-    server.on('upgrade') { |req, socket, head|
+    server.on('upgrade') do |req, socket, head|
       handleUpgrade(req, socket, head)
-    }
+    end 
 
 =begin
     server.on('close') { | x |
@@ -136,7 +136,7 @@ class Manager
     return @settings[key] if value.nil?
 
     @settings[key] = value
-    emit("set:#{key}", @settings[key], key)
+    emit('set:' + key, @settings[key], key)
   end
 
   # Enable a setting
@@ -144,7 +144,7 @@ class Manager
   # @api public
   def enable key
     @settings[key] = true
-    emit("set:#{key}", @settings[key], key)
+    emit('set:' + key, @settings[key], key)
   end
 
   # Disable a setting
@@ -152,7 +152,7 @@ class Manager
   # @api public
   def disable key
     @settings[key] = false
-    emit("set:#{key}", @settings[key], key)
+    emit('set:' + key, @settings[key], key)
   end
 
   # Checks if a setting is enabled
@@ -230,11 +230,13 @@ class Manager
 
     if @closed[id]
 
-      @closedA.reject! { | x | x == id }
+      @closedA.reject! do | x | 
+        x == id 
+      end
       
-      store.unsubcribe("dispatch:#{@id}") { | x | 
+      store.unsubcribe('dispatch:' + @id) do | x | 
         @closed.delete id 
-      }
+      end
     end
 
     if @transports[id]
@@ -294,7 +296,7 @@ class Manager
     @closed[id] = []
     @closedA << id
 
-    @funMap["dispatch:#{@id}"] = store.subscribe("dispatch:#{@id}") do | packet, volatile |
+    @funMap["dispatch:#{@id}"] = store.subscribe('dispatch:' + @id) do | packet, volatile |
       onClientDispatch(id, packet) if not volatile
     end
   end
@@ -312,8 +314,8 @@ class Manager
   # 
   # @api private
   def onClientMessage id, packet
-    if @namespaces[packet[:endpoint]]
-      @namespaces[packet[:endpoint]].handlePacket id, packet
+    if @namespaces[packet.endpoint]
+      @namespaces[packet.endpoint].handlePacket id, packet
     end
   end
 
@@ -377,8 +379,8 @@ class Manager
       return
     end
  
-    if data[:static] || !data[:transport] && !data[:protocol]
-      if data[:static] && enabled('browser client')
+    if data.static || !data.transport && !data.protocol
+      if data.static && enabled('browser client')
         handleClientRequest req, res, data
       else
         res.writeHead 200
@@ -390,13 +392,13 @@ class Manager
       return
     end
  
-    if data[:protocol] != $protocol
+    if data.protocol != $protocol
       res.writeHead 500
       res.end 'Protocol version not supported.'
  
       log.info 'client protocol version unsupported'
     else
-      if data[:id]
+      if data.id
         handleHTTPRequest data, req, res
       else
         handleHandshake data, req, res
@@ -436,61 +438,61 @@ class Manager
   # 
   # @api private
   def handleClient data, req
-    socket = req[:socket]
+    socket = req.socket
  
-    if data[:query].respond_to? :disconnect
-      if @transports[data[:id]] && @transports[data[:id]].open
-        @transports[data[:id]].onForcedDisconnect
+    if data.query.respond_to? :disconnect
+      if @transports[data.id] && @transports[data.id].open
+        @transports[data.id].onForcedDisconnect
       else
-        store.publish "disconnect-force:#{data[:id]}"
+        store.publish 'disconnect-force:' + data.id
       end 
  
       return
     end 
  
-    unless get('transports').index(data[:transport])
-      log.warn 'unknown transport: "' + data[:transport] + '"'
+    unless get('transports').index(data.transport)
+      log.warn 'unknown transport: "' + data.transport + '"'
       req[:connection].doEnd
       return
     end 
  
-    transport = eval("Transports::#{transportLookup data[:transport]}").new self, data, req
+    transport = eval("Transports::#{transportLookup data.transport}").new self, data, req
  
-    if @handshaken[data[:id]]
+    if @handshaken[data.id]
       if transport.open
-        if @closed[data[:id]] && @closed[data[:id]].length > 0
-          transport.payload(@closed[data[:id]])
-          @closed[data[:id]] = []
+        if @closed[data.id] && @closed[data.id].length > 0
+          transport.payload(@closed[data.id])
+          @closed[data.id] = []
         end
  
-        onOpen(data[:id])
-        store.publish('open', data[:id])
-        @transports[data[:id]] = transport
+        onOpen(data.id)
+        store.publish('open', data.id)
+        @transports[data.id] = transport
       end
  
-      unless @connected[data[:id]]
-        onConnect data[:id]
-        store.publish 'connect', data[:id]
+      unless @connected[data.id]
+        onConnect data.id
+        store.publish 'connect', data.id
 
         # flag as used
         handshaken.delete issued
-        onHandshake data[:id], handshaken
-        store.publish 'handshake', data[:id], handshaken
+        onHandshake data.id, handshaken
+        store.publish 'handshake', data.id, handshaken
 
         #initialize the socket for all namespaces
         @namespaces.each do | which |
-          socket = which.socket data[:id], true
+          socket = which.socket data.id, true
  
           # echo back connect packet and fire connection event
-          which.handlePacket(data[:id], :type => 'connect')
+          which.handlePacket(data.id, :type => 'connect')
         end 
  
-        @funMap['message:' + data[:id]] = store.subscribe('message:' + data[:id]) do | packet | 
-          onClientMessage(data[:id], packet)
+        @funMap['message:' + data.id] = store.subscribe('message:' + data.id) do | packet | 
+          onClientMessage(data.id, packet)
         end
  
-        @funMap['disconnect:' + data[:id]] = store.subscribe('disconnect:' + data[:id]) do |reason| 
-          onClientDisconnect(data[:id], reason)
+        @funMap['disconnect:' + data.id] = store.subscribe('disconnect:' + data.id) do |reason| 
+          onClientDisconnect(data.id, reason)
         end
       end
     else
@@ -542,8 +544,8 @@ class Manager
 
     _static = @static
 
-    extension = data[:path].split('.').pop
-    file = data[:path] + (enabled('browser client minification') && extension == 'js' ? '.min' : '')
+    extension = data.path.split('.').pop
+    file = data.path + (enabled('browser client minification') && extension == 'js' ? '.min' : '')
     location = _static[:paths][file]
     cache = _static[:cache][file]
 
@@ -571,7 +573,7 @@ class Manager
       end 
 
       write 200, headers, cache['content'], mime[:encoding]
-      log.debug 'served static ' #+ data[:path]
+      log.debug 'served static ' #+ data.path
     end
 
     if get('browser client handler')
@@ -581,8 +583,8 @@ class Manager
         file = File.open location, 'rb' 
         data = file.read
       rescue
-        write 500, nil, 'Error serving static ' + data[:path]
-        log.warn "Can't cache " + data[:path]
+        write 500, nil, 'Error serving static ' + data.path
+        log.warn "Can't cache " + data.path
         return
       end
 
@@ -617,9 +619,9 @@ class Manager
   # @api private
   def handleHandshake data, req, res
     def writeErr status, message
-      if (data[:query].jsonp) 
+      if (data.query.jsonp) 
         res.writeHead(200, 'Content-Type' => 'application/javascript')
-        res.doEnd('io.j[' + data[:query][:jsonp] + '](new Error("' + message + '"));')
+        res.doEnd('io.j[' + data.query[:jsonp] + '](new Error("' + message + '"));')
       else
         res.writeHead status
         res.doEnd message
@@ -651,8 +653,8 @@ class Manager
               transports(data).join(',')
             ].join(':')
  
-        if data[:query][:jsonp]
-          hs = 'io.j[' + data[:query][:jsonp] + '](' + JSON.stringify(hs) + ');'
+        if data.query[:jsonp]
+          hs = 'io.j[' + data.query[:jsonp] + '](' + JSON.stringify(hs) + ');'
           res.writeHead(200, { 'Content-Type' => 'application/javascript' })
         else 
           res.writeHead 200
@@ -675,7 +677,7 @@ class Manager
   #
   # @api private
   def handshakeData data
-    connection = data[:request].connection
+    connection = data.request.connection
     connectionAddress = {}
  
     if connection['remoteAddress']
@@ -683,10 +685,10 @@ class Manager
         :address => connection['remoteAddress'],
         :port => connection['remotePort']
       } 
-    elsif connection[:socket] and connection[:socket]['remoteAddress']
+    elsif connection.socket and connection.socket['remoteAddress']
       connectionAddress = {
-        :address => connection[:socket]['remoteAddress'],
-        :port => connection[:socket]['remotePort']
+        :address => connection.socket['remoteAddress'],
+        :port => connection.socket['remotePort']
       }
     end
  
@@ -694,10 +696,10 @@ class Manager
       :headers => data[:headers],
       :address => connectionAddress,
       :time => DateTime.now.to_s,
-      :query => data[:query],
-      :url => data[:request].url,
-      :xdomain => data[:request].headers[:origin] ? true : false,
-      :secure => data[:request].connection['secure'],
+      :query => data.query,
+      :url => data.request.url,
+      :xdomain => data.request.headers[:origin] ? true : false,
+      :secure => data.request.connection['secure'],
       :issued => Time.new.to_f
     }
   end
@@ -791,10 +793,10 @@ class Manager
       }
  
       if (pieces)
-        data[:protocol] = pieces[1].to_i
-        data[:transport] = pieces[2]
-        data[:id] = pieces[3]
-        data[:static] = !!@static[:paths][path]
+        data.protocol = pieces[1].to_i
+        data.transport = pieces[2]
+        data.id = pieces[3]
+        data.static = !!@static[:paths][path]
       end
  
       return data

@@ -59,3 +59,12 @@ module JS
   end
 
 end
+
+# @http://stackoverflow.com/questions/7237578/js-style-object-referencing-in-ruby
+class Hash
+  def method_missing(symbol, opts = nil)
+    string = symbol.to_s
+    self[string[0..-2].to_sym] = opts if string[-1..-1] == '=' and opts
+    self[symbol]
+  end
+end
