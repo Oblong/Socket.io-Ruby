@@ -58,7 +58,11 @@ module Transports
     end
 
     def doClose
-      response.doEnd
+      @response.doEnd
+    end
+
+    def doEnd(reason = nil)
+      super
     end
 
     def payload msgs

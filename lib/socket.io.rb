@@ -31,6 +31,7 @@ autoload :Manager, "#{ROOT}/manager"
 autoload :Parser, "#{ROOT}/parser"
 
 autoload :Store, "#{ROOT}/store"
+autoload :Disk, "#{ROOT}/store/disk"
 autoload :FileSession, "#{ROOT}/store/FileSession"
 autoload :Memory, "#{ROOT}/store/memory"
 autoload :Socket, "#{ROOT}/socket"

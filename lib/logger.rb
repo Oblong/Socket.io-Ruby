@@ -13,24 +13,34 @@ module SocketIO
 
     def initialize(*args); end
 
-    def write msg
-      $stderr.puts msg
+    def write type, msg
+      toPrint = [type]
+
+      msg.each do | key | 
+        if key.class == String
+          toPrint << key
+        else
+          toPrint << YAML.dump(key)
+        end
+      end 
+
+      $stderr.puts toPrint.join(' ')
     end
 
     def error(*msg)
-      write "Error: #{msg.join(' ')}"
+      write "Error:", msg
     end
 
     def warn(*msg)
-      write "Warn: #{msg.join(' ')}"
+      write "Warn:", msg
     end
 
     def info(*msg)
-      write "Info: #{msg.join(' ')}"
+      write "Info:", msg
     end
 
     def debug(*msg)
-      write "Debug: #{msg.join(' ')}"
+      write "Debug:", msg
     end
   end
 end

@@ -42,7 +42,7 @@ class Manager
     @settings = {
       'origins' => '*:*',
       'log' => true,
-      'store' => Memory.new,
+      'store' => Disk.new,
       'logger' => SocketIO::Logger.new,
       'heartbeats' => true,
       'resource' => '/socket.io',
@@ -204,7 +204,16 @@ class Manager
       'dispatch',
       'disconnect'
     ].each { | which |
-      store.subscribe(which) { | *args | self.method("on#{which.capitalize}").call(*args) }
+      store.subscribe(which) { | *args | 
+        case args.length
+          when 1
+            self.method("on#{which.capitalize}").call(args[0]) 
+          when 2
+            self.method("on#{which.capitalize}").call(args[0], args[1]) 
+          when 3
+            self.method("on#{which.capitalize}").call(args[0], args[1], args[2]) 
+        end
+      }
     }
   end
 
@@ -289,6 +298,7 @@ class Manager
   # 
   # @api private
   def onClose id
+    $stderr.puts 'class >>> ', id.class
     if @open[id]
       @open.delete id
     end
@@ -296,7 +306,7 @@ class Manager
     @closed[id] = []
     @closedA << id
 
-    @funMap["dispatch:#{@id}"] = store.subscribe('dispatch:' + @id) do | packet, volatile |
+    @funMap['dispatch:' + id] = store.subscribe('dispatch:' + id) do | packet, volatile |
       onClientDispatch(id, packet) if not volatile
     end
   end
@@ -384,7 +394,7 @@ class Manager
         handleClientRequest req, res, data
       else
         res.writeHead 200
-        res.end 'Welcomet to socket.io'
+        res.end 'Welcome to socket.io'
  
         log.info 'unhandled socket.io url'
       end
@@ -398,7 +408,7 @@ class Manager
  
       log.info 'client protocol version unsupported'
     else
-      if data.id
+      if data[:id]
         handleHTTPRequest data, req, res
       else
         handleHandshake data, req, res
@@ -429,9 +439,9 @@ class Manager
   # Handles a normal handshaken HTTP request (eg: long-polling)
   # 
   # @api private
-  def handleHTTPRequest data, req, res
+  def handleHTTPRequest(data, req, res)
     req[res] = res
-    handleClient data, req
+    handleClient(data, req)
   end
 
   # Intantiantes a new client.
@@ -441,10 +451,10 @@ class Manager
     socket = req.socket
  
     if data.query.respond_to? :disconnect
-      if @transports[data.id] && @transports[data.id].open
-        @transports[data.id].onForcedDisconnect
+      if @transports[data[:id]] && @transports[data[:id]].open
+        @transports[data[:id]].onForcedDisconnect
       else
-        store.publish 'disconnect-force:' + data.id
+        store.publish('disconnect-force:' + data[:id])
       end 
  
       return
@@ -452,52 +462,54 @@ class Manager
  
     unless get('transports').index(data.transport)
       log.warn 'unknown transport: "' + data.transport + '"'
-      req[:connection].doEnd
+      req.connection.doEnd
       return
     end 
  
     transport = eval("Transports::#{transportLookup data.transport}").new self, data, req
+
+    handshaken = @handshaken[data[:id]]
  
-    if @handshaken[data.id]
+    if handshaken
       if transport.open
-        if @closed[data.id] && @closed[data.id].length > 0
-          transport.payload(@closed[data.id])
-          @closed[data.id] = []
+        if @closed[data[:id]] && @closed[data[:id]].length > 0
+          transport.payload(@closed[data[:id]])
+          @closed[data[:id]] = []
         end
  
-        onOpen(data.id)
-        store.publish('open', data.id)
-        @transports[data.id] = transport
+        onOpen(data[:id])
+        store.publish('open', data[:id])
+        @transports[data[:id]] = transport
       end
  
-      unless @connected[data.id]
-        onConnect data.id
-        store.publish 'connect', data.id
+      unless @connected[data[:id]]
+        onConnect data[:id]
+        store.publish 'connect', data[:id]
 
         # flag as used
         handshaken.delete issued
-        onHandshake data.id, handshaken
-        store.publish 'handshake', data.id, handshaken
+        onHandshake(data[:id], handshaken)
+        store.publish('handshake', data[:id], handshaken)
 
         #initialize the socket for all namespaces
         @namespaces.each do | which |
-          socket = which.socket data.id, true
+          socket = which.socket(data[:id], true)
  
           # echo back connect packet and fire connection event
-          which.handlePacket(data.id, :type => 'connect')
+          which.handlePacket(data[:id], :type => 'connect')
         end 
  
-        @funMap['message:' + data.id] = store.subscribe('message:' + data.id) do | packet | 
-          onClientMessage(data.id, packet)
+        @funMap['message:' + data[:id]] = store.subscribe('message:' + data[:id]) do | packet | 
+          onClientMessage(data[:id], packet)
         end
  
-        @funMap['disconnect:' + data.id] = store.subscribe('disconnect:' + data.id) do |reason| 
-          onClientDisconnect(data.id, reason)
+        @funMap['disconnect:' + data[:id]] = store.subscribe('disconnect:' + data[:id]) do | reason | 
+          onClientDisconnect(data[:id], reason)
         end
       end
     else
       if transport.open
-        transport.doError 'client not handshaken', 'reconnect'
+        transport.doError('client not handshaken', 'reconnect')
       end
  
       transport.discard
@@ -662,13 +674,13 @@ class Manager
  
         res.doEnd hs
  
-        onHandshake id, newData || handshakeData
-        store.publish 'handshake', id, newData || handshakeData
+        onHandshake(id, newData || handshakeData)
+        store.publish('handshake', id, newData || handshakeData)
  
-        log.info 'handshake authorized', id
+        log.info('handshake authorized', id)
       else 
-        writeErr 403, 'handshake unauthorized'
-        log.info 'handshake unauthorized'
+        writeErr(403, 'handshake unauthorized')
+        log.info('handshake unauthorized')
       end 
     }
   end
@@ -792,10 +804,10 @@ class Manager
         :path => path
       }
  
-      if (pieces)
+      unless pieces.nil?
         data.protocol = pieces[1].to_i
         data.transport = pieces[2]
-        data.id = pieces[3]
+        data[:id] = pieces[3]
         data.static = !!@static[:paths][path]
       end
  

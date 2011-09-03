@@ -64,7 +64,7 @@ end
 class Hash
   def method_missing(symbol, opts = nil)
     string = symbol.to_s
-    self[string[0..-2].to_sym] = opts if string[-1..-1] == '=' and opts
+    self[string[0..-2].to_sym] = opts if string[-1..-1] == '=' 
     self[symbol]
   end
 end
