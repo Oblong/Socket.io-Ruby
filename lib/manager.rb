@@ -205,6 +205,7 @@ class Manager
       'disconnect'
     ].each { | which |
       store.subscribe(which) { | *args | 
+        $stderr.puts YAML.dump(args)
         case args.length
           when 1
             self.method("on#{which.capitalize}").call(args[0]) 
@@ -484,7 +485,7 @@ class Manager
  
       unless @connected[data[:id]]
         onConnect data[:id]
-        store.publish 'connect', data[:id]
+        store.publish('connect', data[:id])
 
         # flag as used
         handshaken.delete issued
@@ -558,33 +559,33 @@ class Manager
 
     extension = data.path.split('.').pop
     file = data.path + (enabled('browser client minification') && extension == 'js' ? '.min' : '')
-    location = _static[:paths][file]
-    cache = _static[:cache][file]
+    location = _static.paths[file]
+    cache = _static.cache[file]
 
     # Writes a response, safely
     # 
     # @api private
     def write(status, headers = nil, content = nil, encoding = 'utf8')
-      @res.writeHead status, headers || nil
-      @res.doEnd content || '', encoding || nil
+      @res.writeHead(status, headers || nil)
+      @res.doEnd(content || '', encoding || nil)
     end
 
     def serve cache, extension
-      if @req.headers['if-none-match'] == cache['Etag']
-        return write 304
+      if @req.headers['if-none-match'] == cache.Etag
+        return write(304)
       end
       
-      mime = @static[:mime][extension]
+      mime = @static.mime[extension]
       headers = {
-        'Content-Type' => mime['contentType'],
+        'Content-Type' => mime.contentType,
         'Content-Length' => cache['length']
       }
 
-      if enabled('browser client etag') && cache['Etag']
-        headers['Etag'] = cache['Etag']
+      if enabled('browser client etag') && cache.Etag
+        headers.Etag = cache.Etag
       end 
 
-      write 200, headers, cache['content'], mime[:encoding]
+      write(200, headers, cache.content, mime.encoding)
       log.debug 'served static ' #+ data.path
     end
 
@@ -595,15 +596,15 @@ class Manager
         file = File.open location, 'rb' 
         data = file.read
       rescue
-        write 500, nil, 'Error serving static ' + data.path
-        log.warn "Can't cache " + data.path
+        write(500, nil, 'Error serving static ' + data.path)
+        log.warn('Can\'t cache ' + data.path)
         return
       end
 
-      cache = @static[:cache][file] = {
+      cache = @static.cache[file] = {
         'content' => data,
         'length' => data.length.to_s,
-        'Etag' => @@client[:version]
+        'Etag' => @@client.version
       }
 
       serve cache, extension
@@ -666,7 +667,7 @@ class Manager
             ].join(':')
  
         if data.query[:jsonp]
-          hs = 'io.j[' + data.query[:jsonp] + '](' + JSON.stringify(hs) + ');'
+          hs = 'io.j[' + data.query.jsonp + '](' + JSON.stringify(hs) + ');'
           res.writeHead(200, { 'Content-Type' => 'application/javascript' })
         else 
           res.writeHead 200

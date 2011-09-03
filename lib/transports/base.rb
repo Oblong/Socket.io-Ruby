@@ -259,7 +259,7 @@ module Transports
         if (current && current.open)
           current.onHeartbeatClear
         else
-          store.publish 'heartbeat-clear:' + @id
+          store.publish('heartbeat-clear:' + @id)
         end
       else 
         if 'disconnect' == packet[:type] and packet[:endpoint] == ''
@@ -268,7 +268,7 @@ module Transports
           if current
             current.onForcedDisconnect
           else
-            store.publish 'disconnect-force:' + @id
+            store.publish('disconnect-force:' + @id)
           end
 
           return
@@ -287,7 +287,7 @@ module Transports
             current.onDispatch ack
           else
             @manager.onClientDispatch @id, ack
-            store.publish 'dispatch:' + @id, ack
+            store.publish('dispatch:' + @id, ack)
           end 
         end
 
@@ -295,7 +295,7 @@ module Transports
         if current
           @manager.onClientMessage @id, packet
         else
-          store.publish 'message:' + @id, packet
+          store.publish('message:' + @id, packet)
         end
       end
     end
@@ -335,7 +335,8 @@ module Transports
         clearHandlers
         @open = false
         @manager.onClose @id
-        store.publish 'close', @id
+        $stderr.puts 'CLOSED', @id, @id.class
+        store.publish('close', @id)
       end
     end
 
@@ -356,7 +357,7 @@ module Transports
         if local
           @manager.onClientDisconnect @id, reason, true
         else 
-          store.publish 'disconnect:' + @id, reason
+          store.publish('disconnect:' + @id, reason)
         end 
       end
     end
