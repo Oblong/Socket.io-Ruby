@@ -27,7 +27,7 @@ class Manager
   #  This is ok since we aren't using much data from it anyway
   attr_reader :client
   @@client = {
-    :version => '0.8.2'
+    :version => '0.8.3'
   }
   # }
 
@@ -63,7 +63,7 @@ class Manager
       'heartbeat interval' => 20,
       'polling duration' => 20,
       'flash policy server' => true,
-      'flash policy port' => 843,
+      'flash policy port' => 10843,
       'destroy upgrade' => true,
       'browser client' => true,
       'browser client minification' => false,
@@ -636,13 +636,13 @@ class Manager
         res.writeHead(200, 'Content-Type' => 'application/javascript')
         res.doEnd('io.j[' + data.query[:jsonp] + '](new Error("' + message + '"));')
       else
-        res.writeHead status
+        res.writeHead(status, { 'Content-Type' => 'text/plain' })
         res.doEnd message
       end
     end
 
     def doError err
-      writeErr 500, 'handshake error'
+      writeErr(500, 'handshake error')
       log.warn "handshake error #{err}"
     end
 
@@ -670,7 +670,7 @@ class Manager
           hs = 'io.j[' + data.query.jsonp + '](' + JSON.stringify(hs) + ');'
           res.writeHead(200, { 'Content-Type' => 'application/javascript' })
         else 
-          res.writeHead 200
+          res.writeHead(200, { 'Content-Type' => 'text/plain' })
         end 
  
         res.doEnd hs

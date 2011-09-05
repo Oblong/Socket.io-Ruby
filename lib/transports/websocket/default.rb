@@ -6,8 +6,6 @@
 # socket.io-node
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
-#
-
 
 
 # HTTP interface constructor. Interface compatible with all transports that
@@ -156,7 +154,6 @@ module Transports
           end
 
           length = Buffer.byteLength(data)
-            , buffer = new Buffer(2 + length)
 
           buffer = [0, 0, data, 0xff, 0xff].flatten.pack('c*')
 
@@ -174,7 +171,7 @@ module Transports
       # Flushes the internal buffer
       #
       # @api private
-      def flush() 
+      def flush
         @buffered.each do | data |
           write(data)
         end 
@@ -226,9 +223,9 @@ module Transports
       #
       # @api private
       def payload(msgs) 
-        messageList.each { | message |
+        messageList.each do | message |
           write(message)
-        }
+        end 
       end
 
 
@@ -269,7 +266,7 @@ module Transports
       def parse
         (@i..@buffer.length).each do | i |
           #rb 1.8 support
-          chr = @buffer[i..i+1].unpack('s')
+          chr = @buffer[i..i + 1].unpack('s')
 
           if @buffer.length == 2 && @buffer.unpack('s')[1] == 0
             emit 'close'

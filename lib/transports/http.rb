@@ -8,6 +8,7 @@
 # MIT Licensed
 
 module Transports
+  # Inherits from Transport.
   class HTTPTransport < Transports::Base
 
     #rb only
@@ -19,6 +20,9 @@ module Transports
       @postEncoded = false
     end
 
+		# Handles a request.
+		#
+		# @api private
     def handleRequest req
       if req.method == 'POST'
         buffer = ''
@@ -26,11 +30,14 @@ module Transports
         origin = req.headers['origin']
         headers = { 'Content-Length' => 1 }
 
-        req.on('data') { | data |
+        req.on('data') do | data |
           buffer << data
-        }
+        end 
 
         req.on('end') do
+          res.writeHead(200, headers)
+          res.end('1')
+
           onData(@postEncoded ? CGI::parse(buffer)['d'] : buffer)
         end
 
@@ -50,21 +57,27 @@ module Transports
       end
     end
 
+		# Handles data payload.
+		#
+		# @api private
     def onData data
-      Parser.decodePayload(data).each { | message |
-        log.debug "#{@name} received data #{message}"
+      log.debug(@name, 'received data', data)
+
+      Parser.decodePayload(data).each do | message |
         onMessage message
-      }
+      end
     end
 
+		# Closes the request-response cycle
+		#
+		# @api private
     def doClose
       @response.doEnd
     end
 
-    def doEnd(reason = nil)
-      super
-    end
-
+		# Writes a payload of messages
+		#
+		# @api private
     def payload msgs
       write parser.encodePayload(msgs)
     end

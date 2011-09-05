@@ -8,32 +8,79 @@
 # MIT Licensed
 
 class Socket
-  include EventEmitter
 
+  # Default error event listener to prevent uncaught exceptions.
+  def defaultError
+  end
+
+  # Socket constructor.
+  #
+  # @param [Manager] manager instance
+  # @param [String] session id
+  # @param [Namespace] namespace the socket belongs to
+  # @param [Boolean] whether the 
+  # @api public
   def initialize manager, id, nsp, readable
     @manager = manager
     @id = id
     @namespace = nsp
-    @readable = readable
     @ackPackets = 0
     @acks = {}
     @disconnected = false
     setFlags
+    @readable = readable
     @store = @manager.store.client @id
+    on('error', method(:defaultError))
   end
 
-  # getters
-  def handshake; @manager.handshaken[@id]; end
-  def log; @manager.log; end
+  # Inherits from EventEmitter.
+  include EventEmitter
 
-  def json; @flags[:json] = true; end
-  def volatile; @flags[:volatile] = true; end
-  def broadcast; @flags[:broadcast] = true; end
+  # Accessor shortcut for the handshake data
+  #
+  # @api private
+  def handshake 
+    @manager.handshaken[@id]
+  end
 
+  # Accessor shortcut for the logger.
+  # 
+  # @api private
+  def log
+    @manager.log
+  end
+
+  # JSON message flag.
+  #
+  # @api public
+  def json
+    @flags.json = true
+  end
+
+  # Volatile message flag.
+  #
+  # @api public
+  def volatile
+    @flags.volatile = true
+  end
+
+  # Broadcast message flag.
+  #
+  # @api public
+  def broadcast
+    @flags.broadcast] = true
+  end
+
+  # Overrides the room to broadcast messages to (flag)
+  #
+  # @api public
   def to room
     @flags[:room] = room
   end
 
+  # Resets flags
+  #
+  # @api private
   def setFlags
     @flags = {
       :endpoint => @namespace[:name],
@@ -41,13 +88,19 @@ class Socket
     }
   end
 
+  # Triggered on disconnect
+  #
+  # @api private
   def onDisconnect reason
     unless @disconnected
       _emit 'disconnect', reason
-      @discconnected = true
+      @disconnected = true
     end
   end
 
+  # Joins a user to a room.
+  #
+  # @api public
   def join name, fn
     nsp = @namespace[:name]
     name = (nsp + '/') + name
@@ -61,6 +114,9 @@ class Socket
     end
   end
 
+  # Un-joins a user from a room.
+  #
+  # @api public
   def leave name, fn
     nsp = @namespace[:name]
     name = (nsp + '/') + name
@@ -74,6 +130,9 @@ class Socket
     end
   end
 
+  # Transmits a packet.
+  #
+  # @api private
   def packet _packet
     if @flags[:broadcast]
       log.debug 'broadcasting packet'
@@ -88,6 +147,9 @@ class Socket
     setFlags
   end
 
+  # Dispatches a packet
+  #
+  # @api private
   def dispatch packet, volatile
     if (not @manager.transports[@id].nil?) and @manager.transports[@id].open
       @manager.transports[@id].onDispatch packet, volatile
@@ -100,22 +162,37 @@ class Socket
     @manager.store.publish "dispatch:#{@id}", packet, volatile
   end
 
+  # Stores data for the client.
+  #
+  # @api public
   def set key, value, fn
     @store.set key, value, fn
   end
 
+  # Retrieves data for the client
+  #
+  # @api public
   def get key, fn
     @store.get key, fn
   end
 
+  # Checks data for the client
+  #
+  # @api public
   def has key, fn
     @store.has key, fn
   end
 
+  # Deletes data for the client
+  #
+  # @api public
   def del key, fn
     @store.del key, fn
   end
 
+  # Kicks client
+  #
+  # @api public
   def disconnect
     unless @disconnected
       log.info 'booting client'
@@ -128,6 +205,9 @@ class Socket
     end
   end
 
+  # Send a message.
+  #
+  # @api public
   def send(data, fn=nil)
     _packet = {
       :type => @flags[:json] ? 'json' : 'message',
@@ -143,6 +223,14 @@ class Socket
     packet _packet
   end
 
+  # Original emit function.
+  #
+  # @api private
+  alias _emit emit
+
+  # Emit override for custom events.
+  #
+  # @api public
   def emit(*ev)
     if ev[0] == 'newListener'
       return _emit ev
