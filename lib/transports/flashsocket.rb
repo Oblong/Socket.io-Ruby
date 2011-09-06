@@ -7,7 +7,6 @@
 # Copyright(c) 2011 LearnBoost <dev@learnboost.com>
 # MIT Licensed
 
-#TODO v0.8.2
 require 'compat/FlashWrap'
 module Transports
   module FlashSocket
@@ -21,53 +20,55 @@ module Transports
     end
 
     def init manager
+      @manager = manager
 
       def create
-        # TODO
-        @server = require('policyfile').createServer({ 
-          :log => lambda { | msg |
-            manager.log.info(msg)
-          }
-        }, manager.get('origins'))
+        @server = $POLICY_SERVER
 
-        @server.on('close') { | x | server = nil })
+        @server.on('close') do
+          @server = nil
+        end
 
-        @server.listen(manager.get('flash policy port'), manager.server);
+        @server.listen(manager.get('flash policy port')) do
+          manager.server.call
+        end
 
-        manager.flashPolicyServer = @server
+        @manager.flashPolicyServer = @server
       end
 
       # listen for origin changes, so we can update the server
-      manager.on('set:origins') { |value, key|
+      @manager.on('set:origins') do |value, key|
         if @server.nil?
           return
         end
 
         # update the origins and compile a new response buffer
-        @server.origins = (value.class == Array) ? value : [value]
-        @server.compile
-      }
+        # TODO
+        #@server.origins = (value.class == Array) ? value : [value]
+        #@server.compile
+      end
 
       # destory the server and create a new server
-      manager.on('set:flash policy port') { |value, key|
-        transports = manager.get 'transports'
+      @manager.on('set:flash policy port') do |value, key|
+        transports = @manager.get('transports')
 
         if @server.port != value && transports.index('flashsocket')
           # destroy the server and rebuild it on a new port
-          @server.close
+          # TODO
+          #@server.close
           create
         end
-      }
+      end
 
       # only start the server
-      manager.on('set:transports') { | value, key |
-        if (!@server && manager.get('transports').index('flashsocket')) 
+      @manager.on('set:transports') do | value, key |
+        if (!@server && @manager.get('transports').index('flashsocket')) 
           create
         end 
-      }
+      end
 
       # check if we need to initialize at start
-      if manager.get('transports').index('flashsocket')
+      if @manager.get('transports').index('flashsocket')
         create
       end 
     end

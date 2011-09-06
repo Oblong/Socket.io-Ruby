@@ -9,9 +9,15 @@
 
 require "rubygems"
 
+MYDIR = File.expand_path(File.dirname(__FILE__))
+$:.unshift(MYDIR + '../dep')
+require 'flashpolicyd'
+
 timeout 30
 
 listen "*:8080", :backlog => 2048
+
+$POLICY_SERVER = PolicyServer.new
 
 preload_app (true)
 

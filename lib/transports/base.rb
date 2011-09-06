@@ -348,14 +348,14 @@ module Transports
         log.info('transport end')
 
         # TODO
-        local = true#@manager.transports[@id]
+        local = @manager.transports[@id]
 
         close
         clearTimeouts
         @disconnected = true
 
         if local
-          @manager.onClientDisconnect @id, reason, true
+          @manager.onClientDisconnect(@id, reason, true)
         else 
           store.publish('disconnect:' + @id, reason)
         end 

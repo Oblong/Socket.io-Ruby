@@ -8,12 +8,15 @@ This project is:
 
 # Requirements
 
-You'll need a Ruby version of the
+For convenience, the necessary files below are included in the dep directory in the repository.
 
  * [node.js core EventEmitter](https://github.com/Oblong/EventEmitter-ruby)
  * [node.js core http](https://github.com/Oblong/Http-Ruby)
  * [npm of policyfile](https://github.com/Oblong/flashpolicyd)
- * [some core JS routines implemented in ruby](https://github.com/Oblong/js-Ruby)
+ * [some core JS routines implemented in Ruby](https://github.com/Oblong/js-Ruby)
+
+Since these libraries are being written in response to this project, it can be assumed (2011-09)
+that the versions in the repository here are the relevant ones neede and will be updated appropriately.
 
 ## Gems you'll need
 
@@ -22,6 +25,7 @@ You'll need a Ruby version of the
  * rack
  * json
  * eventmachine
+ * A webserver (rainbows! or Thin are good)
 
 ## Notes
 

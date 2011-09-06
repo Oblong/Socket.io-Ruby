@@ -19,6 +19,7 @@ class Manager
 
   attr_accessor :rooms
   attr_accessor :static
+  attr_accessor :server
 
   # rb only {
   #  Notes: We really can't include the client side
@@ -54,6 +55,7 @@ class Manager
         'WebSocket' => 'websocket', 
         'HTMLFile' => 'htmlfile',
         'XhrPolling' => 'xhr-polling',
+        'FlashSocket' => 'flashsocket',
         'JsonpPolling' => 'jsonp-polling'
       },
       'authorization' => false,
