@@ -199,6 +199,7 @@ class Manager
     @closedA = []
     @rooms = {}
     @roomClients = {}
+    @methods = {}
 
     [
       'handshake', 
@@ -209,18 +210,11 @@ class Manager
       'close',
       'dispatch',
       'disconnect'
-    ].each { | which |
-      store.subscribe(which) { | *args | 
-        case args.length
-          when 1
-            self.method("on#{which.capitalize}").call(args[0]) 
-          when 2
-            self.method("on#{which.capitalize}").call(args[0], args[1]) 
-          when 3
-            self.method("on#{which.capitalize}").call(args[0], args[1], args[2]) 
-        end
-      }
-    }
+    ].each do | which |
+      @methods[which] = store.subscribe(which) do | *args | 
+        self.method("on#{which.capitalize}").call(*args) 
+      end
+    end 
   end
 
   # Called when a client handshakes.
@@ -249,9 +243,9 @@ class Manager
         x == id 
       end
       
-      store.unsubcribe('dispatch:' + @id) do | x | 
-        @closed.delete id 
-      end
+      store.unsubscribe('dispatch:' + id, @funMap['dispatch:' + id])
+      @closed.delete id 
+
     end
 
     # clear the current transport
@@ -285,7 +279,7 @@ class Manager
   # Called when a client joins a nsp / room.
   # 
   # @api private
-  def onJoin id, name
+  def onJoin(id, name)
     @roomClients[id] = {} if @roomClients[id].nil?
     @rooms[name] = [] if @rooms[name].nil?
 
@@ -776,9 +770,8 @@ class Manager
       })
     else
       log.debug 'client authorized'
-      fn.call nil, true
+      fn.call(nil, true)
     end
-    self
   end
 
   # Retrieves the transports adviced to the user.

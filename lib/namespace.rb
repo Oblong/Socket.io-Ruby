@@ -208,6 +208,7 @@ class SocketNamespace
 
     def connect(sessid, _socket)
       @manager.onJoin(sessid, @name)
+      $stderr.puts "FROM HERE"
       store.publish('join', sessid, @name)
 
       # packet echo

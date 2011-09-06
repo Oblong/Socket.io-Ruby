@@ -10,7 +10,8 @@
 require "rubygems"
 
 MYDIR = File.expand_path(File.dirname(__FILE__))
-$:.unshift(MYDIR + '../dep')
+$:.unshift(MYDIR + '/../dep')
+require 'EventEmitter'
 require 'flashpolicyd'
 
 timeout 30

@@ -55,9 +55,9 @@ class Store
     @clients = {}
   end
 
-  alias subscribe on
-  alias publish emit
-  alias unsubscribe removeListener
+  alias :subscribe :on
+  alias :publish :emit
+  alias :unsubscribe :removeListener
 
   def getsession(&block); end
 end

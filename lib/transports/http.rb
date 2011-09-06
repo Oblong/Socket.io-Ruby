@@ -36,7 +36,7 @@ module Transports
 
         req.on('end') do
           res.writeHead(200, headers)
-          res.end('1')
+          res.doEnd('1')
 
           onData(@postEncoded ? CGI::parse(buffer)['d'] : buffer)
         end
@@ -48,9 +48,6 @@ module Transports
             headers['Access-Control-Allow-Credentials'] = 'true'
           end
         end
-
-        res.writeHead 200, headers
-        res.doEnd '1'
       else
         @response = req.res
         super

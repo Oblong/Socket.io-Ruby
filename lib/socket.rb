@@ -109,7 +109,7 @@ class Socket
     name = (nsp + '/') + name
 
     @manager.onJoin @id, name
-    @manager.store.publish 'join', @id, name
+    @manager.store.publish('join', @id, name)
 
     if fn
       log.warn 'Client#join callback is deprecated'

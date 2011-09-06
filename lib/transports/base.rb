@@ -184,13 +184,13 @@ module Transports
       if @closeTimeout.nil?
 
         @closeTimeout = setTimeout(@manager.get('close timeout') * 1000) do
-          log.debug 'fired close timeout for client'
+          log.debug('fired close timeout for client', @id)
           @closeTimeout = nil
           doEnd 'close timeout'
         end
       end
 
-      log.debug 'set close timeout for client'
+      log.debug('set close timeout for client', @id)
     end
 
     def clearCloseTimeout
@@ -198,7 +198,7 @@ module Transports
         clearTimeout @closeTimeout
         @closeTimeout = nil
 
-        log.debug 'cleared close timeout for client'
+        log.debug('cleared close timeout for client', @id)
       end
     end
 
@@ -206,12 +206,12 @@ module Transports
       if @heartbeatTimeout.nil?
 
         @heartbeatTimeout = setTimeout(@manager.settings('heartbeat timeout') * 1000) do
-          log.debug 'fired heartbeat timeout for client'
+          log.debug('fired heartbeat timeout for client', @id)
           @heartbeatTimeout = nil
           doEnd 'heartbeat timeout'
         end
 
-        log.debug 'set heartbeat timeout for client'
+        log.debug('set heartbeat timeout for client', @id)
       end
     end
 
@@ -262,7 +262,7 @@ module Transports
           store.publish('heartbeat-clear:' + @id)
         end
       else 
-        if 'disconnect' == packet.type and packet[:endpoint] == ''
+        if 'disconnect' == packet[:type] and packet.endpoint == ''
           log.debug 'got disconnection packet'
 
           if current
@@ -274,7 +274,7 @@ module Transports
           return
         end
 
-        if packet[:id] and packet[:ack] != 'data'
+        if packet[:id] and packet.ack != 'data'
           log.debug 'acknowledging packet automatically'
 
           ack = Parser.encodePacket({

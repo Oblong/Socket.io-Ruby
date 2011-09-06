@@ -62,12 +62,13 @@ module HTTP
       } 
 
       @request.socket.emit('drain')
-      @request.socket.emit('end')
       HTTP::server.emit('close')
       @request.socket.emit('close')
     end
 
     def call env
+      input = []
+
       matched = false 
       @paths.each do | path |
         matched |= (env['PATH_INFO'][0..path.length - 1] == path)
@@ -110,8 +111,15 @@ module HTTP
 
         unless env['rack.input'].nil?
           env['rack.input'].each do | data |
-            @request.emit('data', data)
+            input << data
           end
+        end
+ 
+        # Apparently, these events don't get run until
+        # the header is fired.  So we appease the great
+        # node.js god
+        input.each do | data |
+          @request.emit('data', data)
         end
 
         @request.emit('end')
