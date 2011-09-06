@@ -9,7 +9,8 @@
 
 # INSANELY SLOW ... but easy
 class Disk < Store
-  def initialize(*opts)
+  def initialize(options = nil)
+    super
     @state = 'filedump'
     @oldData = {}
     @lastmod = nil
@@ -30,7 +31,7 @@ class Disk < Store
   end
 
   def compare(old, nu, hash)
-    @old.each do | key , value |
+    old.each do | key , value |
       if nu.has_key? key
         if nu[key] != value
           emit hash, key, nu[key]
@@ -41,7 +42,7 @@ class Disk < Store
     end
 
     nu.each do | key, value |
-      unless @old.has_key? key
+      unless old.has_key? key
         emit hash, key, value
       end
     end

@@ -20,6 +20,7 @@ class Manager
   attr_accessor :rooms
   attr_accessor :static
   attr_accessor :server
+  attr_accessor :transports
 
   # rb only {
   #  Notes: We really can't include the client side
@@ -27,6 +28,7 @@ class Manager
   #  
   #  This is ok since we aren't using much data from it anyway
   attr_reader :client
+  attr_reader :handshaken
   @@client = {
     :version => '0.8.3'
   }
@@ -39,6 +41,7 @@ class Manager
     @server = server
     @namespaces = {}
     @sockets = of('')
+    @transports = {}
 
     @settings = {
       'origins' => '*:*',
@@ -94,7 +97,6 @@ class Manager
       clearInterval(self.gc)
     }
 
-=end
     # THIS HAS TO BE DONE A DIFFERENT WAY
     @settings['transports'].each_key { | trans | 
       if eval("Transports::#{trans}").class == Module 
@@ -104,6 +106,7 @@ class Manager
       end
     }
 
+=end
     log.info('socket.io started')
     
     #rb: only
@@ -208,7 +211,6 @@ class Manager
       'disconnect'
     ].each { | which |
       store.subscribe(which) { | *args | 
-        $stderr.puts YAML.dump(args)
         case args.length
           when 1
             self.method("on#{which.capitalize}").call(args[0]) 
@@ -253,10 +255,12 @@ class Manager
     end
 
     # clear the current transport
+=begin
     unless @transports[id].nil?
       @transports[id].discard
       @trasnports[id] = nil
     end
+=end
   end
  
   # Called when a message is sent to a namespace and/or room.
@@ -303,7 +307,6 @@ class Manager
   # 
   # @api private
   def onClose id
-    $stderr.puts 'class >>> ', id.class
     if @open[id]
       @open.delete id
     end
@@ -340,9 +343,11 @@ class Manager
   # 
   # @api private
   def onClientDisconnect(id, reason, bool = true)
-    @namespaces.each { | name, value |
-      value.handleDisconnect(id, reason) if @roomClients[id] and @roomClients[id][name]
-    }
+    @namespaces.each do | name, value |
+      if @roomClients[id] and @roomClients[id][name]
+        value.handleDisconnect(id, reason) 
+      end
+    end 
 
     onDisconnect id
   end
@@ -368,7 +373,7 @@ class Manager
 
     if @roomClients[id]
       @roomClients[id].each do | room, value |
-        @rooms.reject! { | x | x == id }
+        @rooms.reject! { | key, value | key == id }
       end
     end
 
@@ -389,16 +394,16 @@ class Manager
     data = checkRequest req
  
     unless data
-      @oldListeners.each { | which |
+      @oldListeners.each do | which |
         which req, res
-      }
+      end
  
       return
     end
  
     if data.static || !data.transport && !data.protocol
       if data.static && enabled('browser client')
-        handleClientRequest req, res, data
+        handleClientRequest(req, res, data)
       else
         res.writeHead 200
         res.end 'Welcome to socket.io'
@@ -458,8 +463,8 @@ class Manager
     socket = req.socket
  
     if data.query.respond_to? :disconnect
-      if transports[data[:id]] && transports[data[:id]].open
-        transports[data[:id]].onForcedDisconnect
+      if @transports[data[:id]] && @transports[data[:id]].open
+        @transports[data[:id]].onForcedDisconnect
       else
         store.publish('disconnect-force:' + data[:id])
       end 
@@ -494,16 +499,16 @@ class Manager
         store.publish('connect', data[:id])
 
         # flag as used
-        handshaken.delete issued
+        handshaken.delete :issued
         onHandshake(data[:id], handshaken)
         store.publish('handshake', data[:id], handshaken)
 
         #initialize the socket for all namespaces
-        @namespaces.each do | which |
-          socket = which.socket(data[:id], true)
+        @namespaces.each do | key, value |
+          socket = value.socket(data[:id], true)
  
           # echo back connect packet and fire connection event
-          which.handlePacket(data[:id], :type => 'connect')
+          value.handlePacket(data[:id], :type => 'connect')
         end 
  
         @funMap['message:' + data[:id]] = store.subscribe('message:' + data[:id]) do | packet | 
@@ -554,7 +559,7 @@ class Manager
   # Serves the client.
   #
   # @api private
-  def handleClientRequest req, res, data
+  def handleClientRequest(req, res, data)
     # rb only
     #
     #  Scoping permissions require me to reflect this
@@ -584,7 +589,7 @@ class Manager
       mime = @static.mime[extension]
       headers = {
         'Content-Type' => mime.contentType,
-        'Content-Length' => cache['length']
+        'Content-Length' => cache[:length]
       }
 
       if enabled('browser client etag') && cache.Etag
@@ -608,9 +613,9 @@ class Manager
       end
 
       cache = @static.cache[file] = {
-        'content' => data,
-        'length' => data.length.to_s,
-        'Etag' => @@client.version
+        :content => data,
+        :length => data.length.to_s,
+        :Etag => @@client.version
       }
 
       serve cache, extension
@@ -669,7 +674,7 @@ class Manager
         hs = [ id, 
               get('heartbeat timeout') || '',
               get('close timeout') || '',
-              transports(data).join(',')
+              getTransports(data).join(',')
             ].join(':')
  
         if data.query[:jsonp]
@@ -779,7 +784,10 @@ class Manager
   # Retrieves the transports adviced to the user.
   #
   # @api private
-  def transports(data = nil)
+  #
+  # the Node version is so unbelievably poorly written with respect
+  # to this.
+  def getTransports(data = nil)
     (get 'transports').each_value.select { | which |
       which # and ( !which.checkClient or which.checkClient data )
     }
@@ -828,6 +836,9 @@ class Manager
   # 
   # @api public
   def of nsp
-    @namespaces[nsp] = SocketNamespace.new(self, nsp) unless @namespaces[nsp]
+    unless @namespaces[nsp]
+      @namespaces[nsp] = SocketNamespace.new(self, nsp)
+    end
+    @namespaces[nsp]
   end
 end

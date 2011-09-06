@@ -39,8 +39,9 @@ that the versions in the repository here are the relevant ones neede and will be
 
 ## History
 
+ * 2011-09-05 Updated to 0.8.3, almost getting the nop
  * 2011-08-25 Handshaking working
- * 2011-08-23 Bootstrapping right. This is big! :)
+ * 2011-08-23 Bootstrapping right
  * 2011-08-18 Still working on the other libraries.
  * 2011-08-11 Not done yet; don't expect it to work. It's really close though.
 

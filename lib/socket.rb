@@ -8,6 +8,9 @@
 # MIT Licensed
 
 class Socket
+  # rb only {
+  attr_accessor :readable
+  # }
 
   # Default error event listener to prevent uncaught exceptions.
   def defaultError
@@ -30,7 +33,7 @@ class Socket
     setFlags
     @readable = readable
     @store = @manager.store.client @id
-    on('error', method(:defaultError))
+    # on('error', method(:defaultError))
   end
 
   # Inherits from EventEmitter.
@@ -93,7 +96,7 @@ class Socket
   # @api private
   def onDisconnect reason
     unless @disconnected
-      _emit 'disconnect', reason
+      _emit('disconnect', reason)
       @disconnected = true
     end
   end
@@ -193,7 +196,7 @@ class Socket
   # Kicks client
   #
   # @api public
-  def disconnect
+  def disconnect(reason = nil)
     unless @disconnected
       log.info 'booting client'
 
@@ -227,7 +230,7 @@ class Socket
   # Original emit function.
   #
   # @api private
-  alias _emit emit
+  # alias _emit emit
 
   # Emit override for custom events.
   #

@@ -86,7 +86,7 @@ module Transports
       end
 
       @funMap['end'] = @socket.on('end') do
-        doEnd
+        doEnd 'socket-end'
       end
 
       @funMap['close'] = @socket.on('close') do
@@ -162,7 +162,7 @@ module Transports
 
     def onForcedDisconnect
       unless @disconnected
-        log.info 'transport end by forced client disconnection'
+        log.info('transport end by forced client disconnection')
 
         if @open
           packet :type => 'disconnect' 
@@ -345,7 +345,7 @@ module Transports
     # @api private
     def doEnd(reason = nil)
       unless @disconnected
-        log.info('transport end')
+        log.info('transport end :: ', reason)
 
         # TODO
         local = @manager.transports[@id]

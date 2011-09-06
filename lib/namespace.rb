@@ -8,6 +8,8 @@
 # MIT Licensed
 
 class SocketNamespace
+  # rb only
+  attr_accessor :name
 
   # Constructor.
   # 
@@ -36,9 +38,9 @@ class SocketNamespace
 
     return [] if @manager.rooms[room].nil?
 
-    @manager.rooms[room].map! { |id| 
+    @manager.rooms[room].map! do |id| 
       socket id
-    }
+    end
   end
 
   # Access logger interface.
@@ -98,14 +100,13 @@ class SocketNamespace
   # @api private
   def _packet packet
     packet[:endpoint] = @name
-    store = @store
     log = @log
     volatile = @flags[:volatile]
     exceptions = @flags[:exceptions]
     packet = Parser.encodePacket packet
 
     @manager.onDispatch @flags[:endpoint], packet, volatile, exceptions
-    @store.publish 'dispatch', @flags[:endpoint], packet, volatile, exceptions
+    store.publish 'dispatch', @flags[:endpoint], packet, volatile, exceptions
 
     setFlags
   end
@@ -140,7 +141,11 @@ class SocketNamespace
   # @param [Boolean] whether the socket will be readable when initialized
   # @api private
   def socket(sid, readable = nil)
-    @sockets[sid] = Socket.new(@manager, sid, self, readable) unless @sockets[sid]
+    unless @sockets[sid]
+      @sockets[sid] = Socket.new(@manager, sid, self, readable) 
+    end
+
+    @sockets[sid]
   end
 
   # Sets authorization for this namespace
@@ -154,7 +159,7 @@ class SocketNamespace
   # 
   # @api private
   def handleDisconnect sid, reason
-    if @sockets[sid] and @sockets[sid][:readable]
+    if @sockets[sid] and @sockets[sid].readable
       @sockets[sid].onDisconnect reason
     end
   end
@@ -163,7 +168,7 @@ class SocketNamespace
   #
   # @param Object client request data
   # @api private
-  def authorize data, fn
+  def authorize(data, &fn)
     if @auth
       @auth.call(data, lambda { | err, authorized |
         log.debug('client ' + (authorized ? '' : 'un') + 'authorized for ' + @name)
@@ -171,7 +176,7 @@ class SocketNamespace
       })
     else
       log.debug "client authorized for #{@name}"
-      fn nil, true
+      fn.call( nil, true )
     end
   end
 
@@ -179,8 +184,8 @@ class SocketNamespace
   #
   # @api private
   def handlePacket sessid, packet
-    _socket = socket sessid
-    dataAck = packet[:ack] = 'data'
+    _socket = socket(sessid)
+    dataAck = packet.ack = 'data'
 
     def ack(*args)
       log.debug 'sending data ack packet'
@@ -192,7 +197,7 @@ class SocketNamespace
       })
     end
 
-    def doError err
+    def doError(err, _socket)
       log.warn 'handshake error ' + err + ' for ' + @name
 
       _socket.packet({
@@ -201,9 +206,9 @@ class SocketNamespace
       })
     end
 
-    def connect
-      @manager.onjoin sessid, @name
-      @store.publish 'join', sessid, @name
+    def connect(sessid, _socket)
+      @manager.onJoin(sessid, @name)
+      store.publish('join', sessid, @name)
 
       # packet echo
       _socket.packet({ 
@@ -211,35 +216,35 @@ class SocketNamespace
       })
 
       # emit connection event
-      _emit 'connection', socket
+      _emit('connection', _socket)
     end
 
     case packet[:type]
     when 'connect'
-      if packet[:endpoint] == ''
-        connect
+      if packet.endpoint == ''
+        connect(sessid, _socket)
       else
         manager = @manager
         handshakeData = manager.handshaken[sessid]
 
-        authorize handshakeData { |err, authorized, newData|
+        authorize(handshakeData) do |err, authorized, newData|
           if err 
-            return doError err
+            return doError(err, _socket)
           end
 
           if authorized
-            manager.onHandshake sessid, newData || handshakeData
-            @store.publish 'handshake', sessid, newData || handshakeData
-            connect
+            manager.onHandshake(sessid, newData || handshakeData)
+            store.publish('handshake', sessid, newData || handshakeData)
+            connect(sessid, _socket)
           else
-            doError 'unauthorized'
+            doError('unauthorized', _socket)
           end
-        }
+        end
       end
 
     when 'ack'
-      if _socket[:acks][packet[:ackId]]
-        _socket[:acks][packet[:ackId]].call( packet[:args] )
+      if _socket.acks[packet[:ackId]]
+        _socket.acks[packet[:ackId]].call( packet[:args] )
       else
         log.info 'unknown ack packet'
       end 
@@ -249,13 +254,13 @@ class SocketNamespace
 
       params << ack if dataAck
 
-      _socket._emit _socket, params
+      _socket._emit(_socket, params)
 
     when 'disconnect'
       @manager.onLeave sessid, @name
-      @store.publish 'leave', sessid, @name
+      store.publish 'leave', sessid, @name
 
-      _socket._emit 'disconnect', packet[:reason] || 'packet'
+      _socket._emit('disconnect', packet.reason || 'packet')
 
     when 'json'
     when 'message'
@@ -263,7 +268,7 @@ class SocketNamespace
 
       params << ack if dataAck
 
-      _socket._emit _socket, params
+      _socket._emit(_socket, params)
     end
   end 
 

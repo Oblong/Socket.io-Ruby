@@ -24,7 +24,7 @@ class Store
   # @param [String] id
   # @api public
   def client id
-    unless @clients[id]
+    unless @clients[id].nil?
       @clients[id] = Store::Client.new self, id
     end
 

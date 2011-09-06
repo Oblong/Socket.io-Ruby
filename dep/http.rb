@@ -129,7 +129,7 @@ module HTTP
       @response = ServerResponse.new 'threadMap' => @threadMap 
 
       # Although not documented on the site, socket.io in
-      # lib/transports/http.rb HTTPTransport.prototype.handleRequest (0.7.9)
+      # lib/transports/http.js HTTPTransport.prototype.handleRequest (0.7.9)
       # appears to assume that this variable exists. So we put it
       # here to make it happy.
       @request.res = @response
@@ -302,7 +302,11 @@ module HTTP
       #   calling response.write(data, encoding) 
       #   followed by response.end()."
       write(data, encoding) unless data.nil?
-
+      begin
+        # raise Exception
+      rescue Exception => e
+        puts e.backtrace
+      end
       @body << nil
     end
   end

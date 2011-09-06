@@ -18,7 +18,7 @@ require 'eventmachine'
 ROOT = File.expand_path(File.dirname(__FILE__))
 DEP = ROOT + '/../dep'
 
-autoload :JS, "#{DEP}/js"
+require "#{DEP}/js"
 autoload :EventEmitter, "#{DEP}/EventEmitter"
 
 module SocketIO

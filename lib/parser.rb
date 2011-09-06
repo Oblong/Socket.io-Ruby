@@ -10,13 +10,11 @@
 module Parser
   @regexp = /([^:]+):([0-9]+)?(\+)?:([^:]+)?:?([\s\S]*)?/
 
-  @tk = {
-    :packet => [ 
-      'disconnect', 'connect', 'heartbeat', 'message',
-      'json',       'event',   'ack',       'error', 
-      'noop'
-    ],
-  }
+  @@packet = [ 
+    'disconnect', 'connect', 'heartbeat', 'message',
+    'json',       'event',   'ack',       'error', 
+    'noop'
+  ]
 
   @@reasons = [ 'transport not supported' , 'client not handshaken' , 'unauthorized' ]
   @@advice = [ 'reconnect' ]
@@ -27,7 +25,7 @@ module Parser
   end
 
   def self.encodePacket packet
-    type = packet.index(packet[:type])
+    type = @@packet.index(packet[:type])
     id = packet[:id] || ''
     endpoint = packet[:endpoint] ||  ''
     ack = packet[:ack]
