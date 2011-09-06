@@ -87,19 +87,18 @@ class Disk < Store
 
   def save(data)
     File.open(@state, 'w') do | file |
-      $stderr.puts YAML.dump(data)
       Marshal.dump(data, file)
     end
   end
 
   def publish(key, *args)
-     data = load
-     if(args.length == 2) 
-       data[key] ||= {}
-       data[key][args[0]] = args[1]
-     else
-       data[key] = args
-     end
-     save data
+    data = load
+    if(args.length == 2) 
+      data[key] ||= {}
+      data[key][args[0]] = args[1]
+    else
+      data[key] = args[0]
+    end
+    save data
   end
 end

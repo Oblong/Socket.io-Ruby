@@ -93,6 +93,7 @@ class Manager
     }
 
 =end
+    # THIS HAS TO BE DONE A DIFFERENT WAY
     @settings['transports'].each_key { | trans | 
       if eval("Transports::#{trans}").class == Module 
         if eval("Transports::#{trans}").respond_to? :init
@@ -249,7 +250,8 @@ class Manager
       end
     end
 
-    if @transports[id]
+    # clear the current transport
+    unless @transports[id].nil?
       @transports[id].discard
       @trasnports[id] = nil
     end
@@ -260,17 +262,17 @@ class Manager
   # @api private
   def onDispatch room, packet, volatile, exceptions
     if @rooms[room]
-      @rooms.each_index { | i |
+      @rooms.each_index do | i |
         id = @rooms[room][i]
         
         unless exceptions.index(id)
           if @transports[id] and @transports[id].open
-            @transports[id].onDispatch packet, volatile
+            @transports[id].onDispatch(packet, volatile)
           elsif not volatile
             onClientDispatch id, packet
           end
         end
-      }
+      end 
     end
   end      
 
@@ -308,7 +310,9 @@ class Manager
     @closedA << id
 
     @funMap['dispatch:' + id] = store.subscribe('dispatch:' + id) do | packet, volatile |
-      onClientDispatch(id, packet) if not volatile
+      if not volatile
+        onClientDispatch(id, packet) 
+      end  
     end
   end
 
@@ -361,9 +365,9 @@ class Manager
     end
 
     if @roomClients[id]
-      @roomClients[id].each { | room, value |
+      @roomClients[id].each do | room, value |
         @rooms.reject! { | x | x == id }
-      }
+      end
     end
 
     store.destroyClient id, get('client store expiration')
@@ -452,8 +456,8 @@ class Manager
     socket = req.socket
  
     if data.query.respond_to? :disconnect
-      if @transports[data[:id]] && @transports[data[:id]].open
-        @transports[data[:id]].onForcedDisconnect
+      if transports[data[:id]] && transports[data[:id]].open
+        transports[data[:id]].onForcedDisconnect
       else
         store.publish('disconnect-force:' + data[:id])
       end 
@@ -469,7 +473,7 @@ class Manager
  
     transport = eval("Transports::#{transportLookup data.transport}").new self, data, req
 
-    handshaken = @handshaken[data[:id]]
+    handshaken = @handshaken[data[:id].to_i]
  
     if handshaken
       if transport.open
@@ -693,10 +697,10 @@ class Manager
     connection = data.request.connection
     connectionAddress = {}
  
-    if connection['remoteAddress']
+    if connection.remoteAddress
       connectionAddress = {
-        :address => connection['remoteAddress'],
-        :port => connection['remotePort']
+        :address => connection.remoteAddress,
+        :port => connection.remotePort
       } 
     elsif connection.socket and connection.socket['remoteAddress']
       connectionAddress = {
@@ -706,7 +710,7 @@ class Manager
     end
  
     {
-      :headers => data[:headers],
+      :headers => data.headers,
       :address => connectionAddress,
       :time => DateTime.now.to_s,
       :query => data.query,

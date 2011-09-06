@@ -64,9 +64,9 @@ module Transports
           return
         end
 
-        origin = @req.headers[:origin]
+        origin = @req.headers.origin
 
-        location = (@socket[:encrypted] ? 'wss' : 'ws') + '://' + @req[:headers][:host] + @req[:url]
+        location = (@socket[:encrypted] ? 'wss' : 'ws') + '://' + @req.headers[:host] + @req[:url]
         waitingForNonce = false
 
         if @req.headers['sec-web-socket-key1']

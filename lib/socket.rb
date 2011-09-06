@@ -68,14 +68,14 @@ class Socket
   #
   # @api public
   def broadcast
-    @flags.broadcast] = true
+    @flags.broadcast = true
   end
 
   # Overrides the room to broadcast messages to (flag)
   #
   # @api public
   def to room
-    @flags[:room] = room
+    @flags.room = room
   end
 
   # Resets flags
@@ -83,7 +83,7 @@ class Socket
   # @api private
   def setFlags
     @flags = {
-      :endpoint => @namespace[:name],
+      :endpoint => @namespace.name,
       :room => ''
     }
   end
@@ -102,7 +102,7 @@ class Socket
   #
   # @api public
   def join name, fn
-    nsp = @namespace[:name]
+    nsp = @namespace.name
     name = (nsp + '/') + name
 
     @manager.onJoin @id, name
@@ -118,7 +118,7 @@ class Socket
   #
   # @api public
   def leave name, fn
-    nsp = @namespace[:name]
+    nsp = @namespace.name
     name = (nsp + '/') + name
 
     @manager.onLeave @id, name
@@ -134,14 +134,14 @@ class Socket
   #
   # @api private
   def packet _packet
-    if @flags[:broadcast]
-      log.debug 'broadcasting packet'
-      @namespace.in(@flags[:room]).except(@id).packet(_packet)
+    if @flags.broadcast
+      log.debug('broadcasting packet')
+      @namespace.in(@flags.room).except(@id).packet(_packet)
     else
-      packet[:endpoint] = @flags[:endpoint]
-      packet = Parser.encodePacket packet
+      _packet.endpoint = @flags.endpoint
+      _packet = Parser.encodePacket(_packet)
 
-      dispatch packet, @flags[:volatile]
+      dispatch(_packet, @flags.volatile)
     end
 
     setFlags
@@ -159,7 +159,7 @@ class Socket
       end
     end
 
-    @manager.store.publish "dispatch:#{@id}", packet, volatile
+    @manager.store.publish 'dispatch:' + @id, packet, volatile
   end
 
   # Stores data for the client.
@@ -196,11 +196,12 @@ class Socket
   def disconnect
     unless @disconnected
       log.info 'booting client'
+
       if (not @manager.transports[@id].nil?) and @manager.transports[@id].open
         @manager.transports[@id].onForcedDisconnect
       else
         @manager.onClientDisconnect @id
-        @manager.store.publish "disconnect:#{@id}"
+        @manager.store.publish 'disconnect:' + @id
       end
     end
   end
@@ -210,14 +211,14 @@ class Socket
   # @api public
   def send(data, fn=nil)
     _packet = {
-      :type => @flags[:json] ? 'json' : 'message',
+      :type => @flags.json ? 'json' : 'message',
       :data => data
     }
     unless fn.nil?
       @ackPackets += 1
-      _packet[:id] = @ackPackets
-      _packet[:ack] = true
-      @acks[_packet[:id]] = fn
+      _packet.id = @ackPackets
+      _packet.ack = true
+      @acks[_packet.id] = fn
     end
 
     packet _packet
@@ -246,13 +247,13 @@ class Socket
 
     if Method == lastArg.class
       @ackPackets += 1
-      _packet[:id] = @ackPackets
-      _packet[:ack] = lastArg.length ? 'data' : true
-      @acks[_packet[:id]] = lastArg
+      _packet.id = @ackPackets
+      _packet.ack = lastArg.length ? 'data' : true
+      @acks[_packet.id] = lastArg
       args = args[0..-2]
     end 
 
-    _packet[:args] = args
+    _packet.args = args
 
     packet _packet
   end

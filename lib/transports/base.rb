@@ -262,7 +262,7 @@ module Transports
           store.publish('heartbeat-clear:' + @id)
         end
       else 
-        if 'disconnect' == packet[:type] and packet[:endpoint] == ''
+        if 'disconnect' == packet.type and packet[:endpoint] == ''
           log.debug 'got disconnection packet'
 
           if current
@@ -280,7 +280,7 @@ module Transports
           ack = Parser.encodePacket({
             :type => 'ack',
             :ackId => packet[:id],
-            :endpoint => packet[:endpoint] || ''
+            :endpoint => packet.endpoint || ''
           })
 
           if (current and current.open) 
@@ -335,7 +335,7 @@ module Transports
         clearHandlers
         @open = false
         @manager.onClose @id
-        $stderr.puts 'CLOSED', @id, @id.class
+
         store.publish('close', @id)
       end
     end

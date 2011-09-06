@@ -24,7 +24,7 @@ module SocketIO
         end
       end 
 
-      $stderr.puts toPrint.join(' ')
+      $stderr.puts '[' + Process.pid.to_s + ']: ' + toPrint.join(' ')
     end
 
     def error(*msg)
