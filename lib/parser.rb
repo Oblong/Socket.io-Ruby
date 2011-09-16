@@ -10,13 +10,27 @@
 module Parser
   @regexp = /([^:]+):([0-9]+)?(\+)?:([^:]+)?:?([\s\S]*)?/
 
+  # Packet types.
   @@packet = [ 
-    'disconnect', 'connect', 'heartbeat', 'message',
-    'json',       'event',   'ack',       'error', 
-    'noop'
+    'disconnect', # 0
+    'connect',    # 1
+    'heartbeat',  # 2
+    'message',    # 3
+    'json',       # 4 
+    'event',      # 5
+    'ack',        # 6
+    'error',      # 7
+    'noop'        # 8
   ]
 
-  @@reasons = [ 'transport not supported' , 'client not handshaken' , 'unauthorized' ]
+  # Errors reasons.
+  @@reasons = [ 
+    'transport not supported', 
+    'client not handshaken', 
+    'unauthorized' 
+  ]
+
+  # Errors advice.
   @@advice = [ 'reconnect' ]
 
   class << self
@@ -24,17 +38,20 @@ module Parser
     include EventEmitter
   end
 
+  # Encodes a packet.
+  #
+  # @api private
   def self.encodePacket packet
     type = @@packet.index(packet[:type])
     id = packet[:id] || ''
-    endpoint = packet[:endpoint] ||  ''
-    ack = packet[:ack]
+    endpoint = packet.endpoint ||  ''
+    ack = packet.ack
     data = nil
 
     case packet[:type]
       when 'error'
-        reason = packet[:reason] ? @@reasons.index(packet[:reason]) : ''
-        adv = packet[:advice] ? @@advice.index(packet[:advice]) : ''
+        reason = packet.reason ? @@reasons.index(packet.reason) : ''
+        adv = packet.advice ? @@advice.index(packet.advice) : ''
 
         if reason 
           reason = @@reasons[reason]
@@ -54,7 +71,7 @@ module Parser
         end
 
       when 'event'
-        ev = { 'name' => packet.name }
+        ev = { :name => packet.name }
 
         if (packet.args && packet.args.length) 
           ev.args = packet.args
@@ -148,7 +165,7 @@ module Parser
         packet.args = opts.args
       rescue; end
 
-      packet[:args] = packet[:args] || []
+      packet.args = packet.args || []
 
     when 'json'
       begin
@@ -159,15 +176,15 @@ module Parser
       packet[:qs] = data || ''
 
     when 'ack'
-      array = data.match(/^([0-9]+)(\+)?(.*)/)
+      pieces = data.match(/^([0-9]+)(\+)?(.*)/)
 
-      if array
-        packet.ackId = array[1]
-        packet[:args] = []
+      if pieces
+        packet.ackId = pieces[1]
+        packet.args = []
 
-        if array[3]
+        if pieces[3]
           begin
-            packet[:args] = array[3] ? JSON.parse(array[3]) : []
+            packet.args = pieces[3] ? JSON.parse(pieces[3]) : []
           rescue; end
         end
       end
@@ -184,9 +201,9 @@ module Parser
     if data[0] == '\ufffd'
       ret = []
 
-      data[1..-1].split('\ufffd').each { | payload |
+      data[1..-1].split('\ufffd').each do | payload |
         ret << decodePacket(payload)
-      }
+      end
 
       ret
     else 

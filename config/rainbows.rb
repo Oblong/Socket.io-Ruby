@@ -17,11 +17,13 @@ require 'flashpolicyd'
 timeout 30
 
 listen "*:8080", :backlog => 2048
+#stderr_path "/dev/null"
 
 $POLICY_SERVER = PolicyServer.new
 
 preload_app (true)
 
+EventEmitter::start
 =begin
 before_fork do |server, worker|
 end

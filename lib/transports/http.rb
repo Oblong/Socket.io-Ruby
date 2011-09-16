@@ -76,7 +76,7 @@ module Transports
 		#
 		# @api private
     def payload msgs
-      write parser.encodePayload(msgs)
+      write Parser::encodePayload(msgs)
     end
   end
 end
