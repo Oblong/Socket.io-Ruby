@@ -212,6 +212,7 @@ class Manager
       'disconnect'
     ].each do | which |
       @methods[which] = store.subscribe(which) do | *args | 
+        $stderr.puts "{{", YAML.dump(args), "}}"
         self.method("on#{which.capitalize}").call(*args) 
       end
     end 

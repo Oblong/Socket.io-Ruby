@@ -48,7 +48,10 @@ module EventEmitter
       # This will then be sent to the broadcaster above
       # which will then go out to all the listeners
       Thread.new {
-        send_data [@thread, @class, @queue.pop]
+        loop {
+          data = @queue.pop
+          send_data [@thread, @class, data]
+        }
       }
     end
 
