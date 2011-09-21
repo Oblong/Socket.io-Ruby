@@ -30,10 +30,11 @@ autoload :SocketNamespace, "#{ROOT}/namespace"
 autoload :Manager, "#{ROOT}/manager"
 autoload :Parser, "#{ROOT}/parser"
 
-autoload :Store, "#{ROOT}/store"
-autoload :Disk, "#{ROOT}/store/disk"
-autoload :FileSession, "#{ROOT}/store/FileSession"
-autoload :Memory, "#{ROOT}/store/memory"
+autoload :Store, "#{ROOT}/stores"
+autoload :Disk, "#{ROOT}/stores/disk"
+autoload :Redis, "#{ROOT}/stores/redis"
+autoload :FileSession, "#{ROOT}/stores/FileSession"
+autoload :Memory, "#{ROOT}/storex/memory"
 autoload :Socket, "#{ROOT}/socket"
 
 module Transports
