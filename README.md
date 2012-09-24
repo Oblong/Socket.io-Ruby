@@ -1,3 +1,16 @@
+## Do you enjoy relay races? Here, let me pass the baton to you.
+
+No, really. Ok so what happened here is that we had an in-house thing that did the same as this in Ruby that we made prior to
+socket.io becoming the Next Big Thing. It had some issues but those are now resolved. There were a few other issues in socket.io
+at the time of the port that prevented us from going over; specifically some issues that we handled well that they didn't at the
+time yet.  
+
+Those are probably all resolved and porting may be an easier and more sensible task now given that.  In fact, there's a number of 
+ways to pull this off using some pretty fun technologies out there without a port.  But if you'd like to pick up where we left off 
+here, then I encourage you to do so.
+
+Feel free to contact me chris @ (the name of this user) . com. Thanks!
+
 # Socket.IO-ruby
 
 This project is:
